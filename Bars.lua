@@ -3,9 +3,10 @@ local L = S.L
 local M = {}
 S:RegisterModule("bars", M)
 
--- Bars and screen: micro menu and bag bar (frames, fading, hiding single buttons, collapsing the bag
--- bar), red error messages, key binding and macro texts, action bar art, out of range colour, class
--- colours in the unit frames and the combat text on the portraits.
+-- Bars and screen: micro menu and bag bar (outer frame, arrangement, fading, hiding single buttons,
+-- collapsing the bag bar), red error messages, key binding and macro texts, action bar art, out of range
+-- colour, class colours in the unit frames and the combat text on the portraits. The buttons themselves
+-- always keep Blizzard's look.
 --
 -- Blizzard's art is never hidden with Hide(): Blizzard shows it again on every state change. Sundry
 -- sets the alpha to 0 instead, which Blizzard leaves alone.
@@ -19,36 +20,9 @@ end
 
 local collapseButton   -- Sundry's arrow next to the backpack (created with the bag bar)
 
--- Thin line frame from plain colour, like Mundi's "line" style
-local function LineBorder(frame)
-	if frame.sundryLine then return frame.sundryLine end
-	local edges = {}
-	for i = 1, 4 do
-		local t = frame:CreateTexture(nil, "OVERLAY", nil, 7)
-		t:SetColorTexture(0, 0, 0, 0.9)
-		edges[i] = t
-	end
-	edges[1]:SetPoint("TOPLEFT", 1, -1); edges[1]:SetPoint("TOPRIGHT", -1, -1); edges[1]:SetHeight(1)
-	edges[2]:SetPoint("BOTTOMLEFT", 1, 1); edges[2]:SetPoint("BOTTOMRIGHT", -1, 1); edges[2]:SetHeight(1)
-	edges[3]:SetPoint("TOPLEFT", 1, -1); edges[3]:SetPoint("BOTTOMLEFT", 1, 1); edges[3]:SetWidth(1)
-	edges[4]:SetPoint("TOPRIGHT", -1, -1); edges[4]:SetPoint("BOTTOMRIGHT", -1, 1); edges[4]:SetWidth(1)
-	frame.sundryLine = edges
-	return edges
-end
-
-local function ShowLine(frame, shown)
-	local edges = shown and LineBorder(frame) or frame.sundryLine
-	if not edges then return end
-	for i = 1, 4 do edges[i]:SetShown(shown) end
-end
-
 ------------------------------------------------------------------------
 -- Micro menu
 ------------------------------------------------------------------------
--- The dark rounded background behind each micro button: textures named Background / PushedBackground
--- (Dragonflight style), found by key or by their atlas.
-local BG_KEYS = { "Background", "PushedBackground" }
-
 local function MicroButtons()
 	local list = {}
 	if MicroMenu and MicroMenu.GetLayoutChildren then
@@ -62,20 +36,6 @@ local function MicroButtons()
 	return list
 end
 M.MicroButtons = MicroButtons
-
-local function IsButtonBackground(region)
-	local atlas = region.GetAtlas and region:GetAtlas()
-	return type(atlas) == "string" and atlas:find("MicroMenu%-ButtonBG") ~= nil
-end
-
-local function StyleMicroButton(button, style)
-	local alpha = (style == "BLIZZARD") and 1 or 0
-	for _, key in ipairs(BG_KEYS) do SetAlphaOf(button[key], alpha) end
-	for _, region in ipairs({ button:GetRegions() }) do
-		if IsButtonBackground(region) then region:SetAlpha(alpha) end
-	end
-	ShowLine(button, style == "LINE")
-end
 
 local function MicroButtonName(button)
 	return button:GetName() or button:GetDebugName()
@@ -177,11 +137,9 @@ local function ApplyMicro(fromBlizzard)
 	laying = true
 	local db = S.db.bars
 	local on = S:IsEnabled("bars")
-	local style = on and db.microStyle or "BLIZZARD"
 	local buttons = MicroButtons()
 	local function Hidden(button) return on and db.microHide[MicroButtonName(button)] and true or false end
 	for _, button in ipairs(buttons) do
-		StyleMicroButton(button, style)
 		local hidden = Hidden(button)
 		button:SetAlpha(hidden and 0 or 1)
 		if not InCombatLockdown() then button:EnableMouse(not hidden) end
@@ -406,15 +364,8 @@ M.LayoutBags = LayoutBags
 local function ApplyBags()
 	local db = S.db.bags
 	local on = S:IsEnabled("bags")
-	local style = on and db.bagStyle or "BLIZZARD"
 	local buttons = BagSlots()
 	if Backpack() then table.insert(buttons, Backpack()) end
-	for _, b in ipairs(buttons) do
-		-- the round slot art behind the bag icon (newer clients: SlotHighlightTexture / NormalTexture)
-		local normal = b.GetNormalTexture and b:GetNormalTexture()
-		SetAlphaOf(normal, style == "BLIZZARD" and 1 or 0)
-		ShowLine(b, style == "LINE")
-	end
 	CreateCollapseButton()
 	LayoutBags()
 	ApplyBagCollapse()

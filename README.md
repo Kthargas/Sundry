@@ -40,24 +40,24 @@ everything that acts on its own (automation) starts off.
 ### Bags
 - **Slots filled from the top left**: the empty cells of a partly filled row go to the bottom right.
 - **Reagent bag in the bag window**, as its own area below the combined bag, opening and closing with it.
+- **Bag bar** without its outer frame, in a direction you choose, fading until mouseover, and an arrow next to
+  the backpack that **folds the bag slots and the key ring away**.
 
-### Bars
-- **Micro menu without its outer frame**, the buttons with or without their own frame (or a thin line), fading
-  until mouseover, single buttons hidden; the others **close up** in a direction you choose.
-- **Bag bar**: in a direction you choose, without its frame, the same styles, fading, and an arrow next to the backpack that **folds the bag
-  slots away**.
-- Red error messages (not enough energy, out of range, ...) hidden in combat, always or all of them.
+### Menu & action bars
+- **Micro menu without its outer frame**, fading until mouseover, single buttons hidden; the others **close
+  up** in a direction you choose. The buttons keep Blizzard's look.
 - Key binding and macro texts on the action buttons, the action bar art, red buttons when out of range.
-- Class coloured health bars and the combat text on the portraits.
 
-### Tooltip
+### Tooltip & unit frames
 - At the mouse, hidden in combat (a key shows it anyway), class coloured names, the unit's target, health bar,
   item and spell IDs.
+- Class coloured health bars and the combat text on the portraits.
 
-### Chat
+### Chat & messages
 - **Arrow keys walk through what you sent**, without Alt, and the sent messages survive a reload or logout.
 - Clickable web links with a box to copy them, short channel names ("[1]"), hidden chat buttons, the input box
   above the chat, more lines per window and a window to copy the chat.
+- Red error messages (not enough energy, out of range, ...) hidden in combat, always or all of them.
 
 ### Automation (all off by default, hold Shift to pause)
 - **Accept and turn in quests** as two switches, with the kinds of quests to accept: normal, repeatable, low

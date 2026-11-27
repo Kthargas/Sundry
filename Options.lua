@@ -92,9 +92,6 @@ end
 local MODIFIER_LIST = {
 	{ "NONE", L.MOD_NONE }, { "SHIFT", L.MOD_SHIFT }, { "CTRL", L.MOD_CTRL }, { "ALT", L.MOD_ALT },
 }
-local STYLE_LIST = {
-	{ "BLIZZARD", L.STYLE_BLIZZARD }, { "NONE", L.STYLE_NONE }, { "LINE", L.STYLE_LINE },
-}
 
 ------------------------------------------------------------------------
 -- Pages
@@ -175,7 +172,6 @@ function O:BuildBags(category, layout)
 		{ "UP", L.DIR_UP }, { "DOWN", L.DIR_DOWN },
 	}))
 	Dep(self:Checkbox(category, "bags", "bagFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
-	Dep(self:Dropdown(category, "bags", "bagStyle", L.BAG_STYLE, nil, STYLE_LIST))
 	local bagFade = Dep(self:Checkbox(category, "bags", "bagFade", L.FADE, L.FADE_TT))
 	Dep(self:Slider(category, "bags", "bagAlpha", L.FADE_ALPHA, nil, 0, 1, 0.05, Percent), bagFade,
 		function() return S.db.bags.bagFade end)
@@ -187,7 +183,6 @@ function O:BuildBars(category, layout)
 
 	Header(layout, L.SECTION_MICRO)
 	Dep(self:Checkbox(category, "bars", "microFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
-	Dep(self:Dropdown(category, "bars", "microStyle", L.MICRO_STYLE, L.MICRO_STYLE_TT, STYLE_LIST))
 	local order = Dep(self:Dropdown(category, "bars", "microOrder", L.MICRO_ORDER, L.MICRO_ORDER_TT, {
 		{ "BLIZZARD", L.ORDER_BLIZZARD }, { "RIGHT", L.ORDER_RIGHT }, { "LEFT", L.ORDER_LEFT },
 		{ "DOWN", L.ORDER_DOWN }, { "UP", L.ORDER_UP },
