@@ -32,7 +32,8 @@ everything that acts on its own (automation) starts off.
 - **Drag Blizzard's windows** (character, spellbook, talents, quest log, friends, merchant, bank, mail, auction
   house, professions, trainer, macros, key bindings, collections, ...), optionally only while holding a key.
 - **Positions are kept** for all characters, per character or until logout. Windows you never moved stay where
-  Blizzard puts them. The bag windows can be moved too.
+  Blizzard puts them. The bag windows can be moved too, by their title bar and portrait (right click there
+  opens Blizzard's bag menu).
 - Ctrl + mouse wheel changes a window's size, Shift + Ctrl + right click resets it.
 - Windows stay on the screen.
 
@@ -68,7 +69,7 @@ everything that acts on its own (automation) starts off.
 
 ### Camera, sound & travel
 - **Flight time bar**: where you are flying and how long it still takes (each route is measured on its first
-  flight).
+  flight); the flight map shows the measured time in the tooltip of each destination.
 - Larger camera distance, a screenshot on level up, muted sounds from a list, `/rl`.
 
 ### More

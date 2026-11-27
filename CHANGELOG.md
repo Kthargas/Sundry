@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 - 2026-11-27
+
+- Bag windows: the title bar and the portrait can be dragged to move the window; the bag menu (sorting, bag settings) now opens with a right click there instead of a left click. Dragging the docked reagent bag moves the whole bag window.
+- Reagent bag: its portrait icon is shown again when it is docked.
+- Flight map: the tooltip of a destination shows the measured flight time.
+
 ## 1.1.0 - 2026-11-27
 
 - Bars: the outer frame of the micro menu and the bag bar can be hidden (the buttons keep their own look). Hidden micro buttons leave no gap; the others line up left to right, right to left, top to bottom or bottom to top, with a spacing slider.
