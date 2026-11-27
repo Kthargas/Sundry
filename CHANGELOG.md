@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.2 - 2026-11-27
+
+- Bag bar: the bag icons come back when the bags are unfolded.
+- Bag window: fast clicking on the bag buttons no longer leaves the docked reagent bag empty; opening and closing it waits for the clicks to settle, and its size is taken from Blizzard's first layout.
+
 ## 1.2.1 - 2026-11-27
 
 - Bag bar: folding the bags away also hides the gold slot frames (each texture and child frame of a slot is faded on its own), and the bags stay folded when Blizzard redraws the slots.
