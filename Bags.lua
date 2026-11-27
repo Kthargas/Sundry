@@ -115,8 +115,14 @@ local function Dock(combined, grid)
 		if not own then return end
 	end
 
-	local topPad = reagent:GetTop() - own.top
-	local bottomPad = (own.bottom - (buttons[1]:GetHeight() or 37)) - reagent:GetBottom()
+	-- padding of Blizzard's own layout, read once (later reads would see Sundry's size)
+	if not reagent.sundryPads then
+		local top = reagent:GetTop() - own.top
+		local bottom = (own.bottom - (buttons[1]:GetHeight() or 37)) - reagent:GetBottom()
+		if top > 0 and top < 120 then reagent.sundryPads = { top = top, bottom = math.max(bottom, 4) } end
+	end
+	local pads = reagent.sundryPads or { top = 30, bottom = 8 }
+	local topPad, bottomPad = pads.top, pads.bottom
 	local rows = math.ceil(#buttons / grid.columns)
 	local height = topPad + (rows - 1) * grid.stepY + (buttons[1]:GetHeight() or 37) + math.max(bottomPad, 4)
 
@@ -176,16 +182,31 @@ local function Arrange()
 end
 
 -- Open and close the reagent bag together with the combined bag.
-local function OnCombinedShow()
-	if not S:Get("bags", "reagentDock") or FindReagentFrame() then return end
-	local slots = C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerNumSlots(ReagentBagID()) or 0
-	if slots > 0 and OpenBag then pcall(OpenBag, ReagentBagID()) end
+-- Settled a moment after the last click, so fast clicking on the bag buttons does not race Blizzard's own
+-- opening and closing.
+local pending
+local function SyncReagent()
+	pending = nil
+	local combined = ContainerFrameCombinedBags
+	if not combined or not S:Get("bags", "reagentDock") then return end
+	local reagent = FindReagentFrame()
+	if combined:IsShown() then
+		local slots = C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerNumSlots(ReagentBagID()) or 0
+		if not reagent and slots > 0 and OpenBag then pcall(OpenBag, ReagentBagID()) end
+	elseif reagent and reagent.sundryDocked and CloseBag then
+		pcall(CloseBag, ReagentBagID())
+	end
+	Arrange()
+	-- items that were not laid out yet when the bag opened
+	C_Timer.After(0.2, Arrange)
 end
 
-local function OnCombinedHide()
-	local reagent = FindReagentFrame()
-	if reagent and reagent.sundryDocked and CloseBag then pcall(CloseBag, ReagentBagID()) end
+local function QueueSync()
+	if pending then return end
+	pending = true
+	C_Timer.After(0.15, SyncReagent)
 end
+local OnCombinedShow, OnCombinedHide = QueueSync, QueueSync
 
 local hooked = {}
 local function HookFrame(frame)

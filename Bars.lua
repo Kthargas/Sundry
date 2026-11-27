@@ -295,7 +295,9 @@ local function ApplyBagCollapse()
 					region.sundryAlpha = region.sundryAlpha or region:GetAlpha()
 					region:SetAlpha(0)
 				elseif region.sundryAlpha then
-					region:SetAlpha(region.sundryAlpha)
+					-- a part that was already invisible when folding comes back fully (Blizzard shows and hides
+					-- its parts itself)
+					region:SetAlpha(region.sundryAlpha > 0 and region.sundryAlpha or 1)
 					region.sundryAlpha = nil
 				end
 			end
