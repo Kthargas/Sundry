@@ -167,6 +167,14 @@ function O:BuildBags(category, layout)
 	Header(layout, L.SECTION_BAGWINDOW)
 	Dep(self:Checkbox(category, "bags", "fillTop", L.BAG_FILL_TOP, L.BAG_FILL_TOP_TT))
 	Dep(self:Checkbox(category, "bags", "reagentDock", L.REAGENT_DOCK, L.REAGENT_DOCK_TT))
+
+	Header(layout, L.SECTION_BAGS)
+	Dep(self:Checkbox(category, "bags", "bagCollapse", L.BAG_COLLAPSE, L.BAG_COLLAPSE_TT))
+	Dep(self:Checkbox(category, "bags", "bagFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
+	Dep(self:Dropdown(category, "bags", "bagStyle", L.BAG_STYLE, nil, STYLE_LIST))
+	local bagFade = Dep(self:Checkbox(category, "bags", "bagFade", L.FADE, L.FADE_TT))
+	Dep(self:Slider(category, "bags", "bagAlpha", L.FADE_ALPHA, nil, 0, 1, 0.05, Percent), bagFade,
+		function() return S.db.bags.bagFade end)
 end
 
 function O:BuildBars(category, layout)
@@ -202,28 +210,11 @@ function O:BuildBars(category, layout)
 		Dep(Settings.CreateCheckbox(category, setting, L.SHOW_BUTTON_TT))
 	end
 
-	Header(layout, L.SECTION_BAGS)
-	Dep(self:Checkbox(category, "bars", "bagFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
-	Dep(self:Dropdown(category, "bars", "bagStyle", L.BAG_STYLE, nil, STYLE_LIST))
-	Dep(self:Checkbox(category, "bars", "bagCollapse", L.BAG_COLLAPSE, L.BAG_COLLAPSE_TT))
-	local bagFade = Dep(self:Checkbox(category, "bars", "bagFade", L.FADE, L.FADE_TT))
-	Dep(self:Slider(category, "bars", "bagAlpha", L.FADE_ALPHA, nil, 0, 1, 0.05, Percent), bagFade,
-		function() return S.db.bars.bagFade end)
-
 	Header(layout, L.SECTION_ACTIONBARS)
 	Dep(self:Checkbox(category, "bars", "hotkeys", L.HOTKEYS, L.HOTKEYS_TT))
 	Dep(self:Checkbox(category, "bars", "macroNames", L.MACRO_NAMES, L.MACRO_NAMES_TT))
 	Dep(self:Checkbox(category, "bars", "barArt", L.BAR_ART, L.BAR_ART_TT))
 	Dep(self:Checkbox(category, "bars", "rangeColor", L.RANGE_COLOR, L.RANGE_COLOR_TT))
-
-	Header(layout, L.SECTION_ERRORS)
-	Dep(self:Dropdown(category, "bars", "errors", L.ERRORS, L.ERRORS_TT, {
-		{ "OFF", L.ERRORS_OFF }, { "COMBAT", L.ERRORS_COMBAT }, { "ALWAYS", L.ERRORS_ALWAYS }, { "ALL", L.ERRORS_ALL },
-	}))
-
-	Header(layout, L.SECTION_UNITFRAMES)
-	Dep(self:Checkbox(category, "bars", "classColors", L.CLASS_COLORS, L.CLASS_COLORS_TT))
-	Dep(self:Checkbox(category, "bars", "hitText", L.HIT_TEXT, L.HIT_TEXT_TT))
 end
 
 function O:BuildTooltip(category, layout)
@@ -238,6 +229,9 @@ function O:BuildTooltip(category, layout)
 	Dep(self:Checkbox(category, "tooltip", "target", L.TT_TARGET, L.TT_TARGET_TT))
 	Dep(self:Checkbox(category, "tooltip", "healthBar", L.TT_HEALTH, nil))
 	Dep(self:Checkbox(category, "tooltip", "ids", L.TT_IDS, L.TT_IDS_TT))
+	Header(layout, L.SECTION_UNITFRAMES)
+	Dep(self:Checkbox(category, "tooltip", "classColors", L.CLASS_COLORS, L.CLASS_COLORS_TT))
+	Dep(self:Checkbox(category, "tooltip", "hitText", L.HIT_TEXT, L.HIT_TEXT_TT))
 end
 
 function O:BuildChat(category, layout)
@@ -254,6 +248,10 @@ function O:BuildChat(category, layout)
 	Dep(self:Checkbox(category, "chat", "hideButtons", L.HIDE_BUTTONS, L.HIDE_BUTTONS_TT))
 	Dep(self:Checkbox(category, "chat", "copy", L.COPY_BUTTON, L.COPY_BUTTON_TT))
 	Dep(self:Slider(category, "chat", "lines", L.LINES, L.LINES_TT, 128, 1024, 128))
+	Header(layout, L.SECTION_ERRORS)
+	Dep(self:Dropdown(category, "chat", "errors", L.ERRORS, L.ERRORS_TT, {
+		{ "OFF", L.ERRORS_OFF }, { "COMBAT", L.ERRORS_COMBAT }, { "ALWAYS", L.ERRORS_ALWAYS }, { "ALL", L.ERRORS_ALL },
+	}))
 end
 
 function O:BuildAuto(category, layout)

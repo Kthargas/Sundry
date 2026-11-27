@@ -16,8 +16,8 @@
 ## What it does
 
 Sundry bundles the small things you would otherwise install ten addons for. Every module and every single
-feature can be switched on and off in Esc > Options > AddOns > Sundry (pages Loot & merchants, Windows, Bags, Bars,
-Tooltip, Chat, Automation, Camera, sound & travel and Actions; laid out like Fray and Mundi). Comfort features start on,
+feature can be switched on and off in Esc > Options > AddOns > Sundry (pages Loot & merchants, Windows, Bags, Menu &
+action bars, Tooltip & unit frames, Chat & messages, Automation, Camera, sound & travel and Actions; laid out like Fray and Mundi). Comfort features start on,
 everything that acts on its own (automation) starts off.
 
 ### Loot & merchants

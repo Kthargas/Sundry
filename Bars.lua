@@ -205,6 +205,7 @@ local function BagSlots()
 		if slot then list[#list + 1] = slot end
 	end
 	if CharacterReagentBag0Slot then list[#list + 1] = CharacterReagentBag0Slot end
+	if KeyRingButton then list[#list + 1] = KeyRingButton end
 	return list
 end
 
@@ -265,7 +266,9 @@ local function FadeSlotArt(slots, collapsed)
 			if region:GetObjectType() == "Texture" then Check(region) end
 		end
 		for _, child in ipairs({ holder:GetChildren() }) do
-			if child:GetObjectType() == "Frame" and not child:IsMouseEnabled() then
+			local isSlot = false
+			for _, slot in ipairs(slots) do if slot == child then isSlot = true end end
+			if not isSlot and child ~= collapseButton and child ~= Backpack() and child:GetObjectType() ~= "Button" then
 				Check(child)
 				for _, region in ipairs({ child:GetRegions() }) do
 					if region:GetObjectType() == "Texture" then Check(region) end
@@ -276,12 +279,24 @@ local function FadeSlotArt(slots, collapsed)
 end
 
 local function ApplyBagCollapse()
-	local on = S:Get("bars", "bagCollapse")
+	local on = S:Get("bags", "bagCollapse")
 	local collapsed = on and S.char.bagsCollapsed
 	local slots = BagSlots()
 	for _, slot in ipairs(slots) do
 		slot:SetAlpha(collapsed and 0 or 1)
 		if not InCombatLockdown() then slot:EnableMouse(not collapsed) end
+		-- frame art that ignores the button's alpha (newer action bar style slots)
+		for _, region in ipairs({ slot:GetRegions() }) do
+			if region.IsIgnoringParentAlpha and region:IsIgnoringParentAlpha() then
+				if collapsed then
+					region.sundryAlpha = region.sundryAlpha or region:GetAlpha()
+					region:SetAlpha(0)
+				elseif region.sundryAlpha then
+					region:SetAlpha(region.sundryAlpha)
+					region.sundryAlpha = nil
+				end
+			end
+		end
 	end
 	FadeSlotArt(slots, collapsed)
 	if collapseButton then
@@ -323,8 +338,9 @@ local function CreateCollapseButton()
 end
 
 local function ApplyBags()
-	local db = S.db.bars
-	local style = S:IsEnabled("bars") and db.bagStyle or "BLIZZARD"
+	local db = S.db.bags
+	local on = S:IsEnabled("bags")
+	local style = on and db.bagStyle or "BLIZZARD"
 	local buttons = BagSlots()
 	if Backpack() then table.insert(buttons, Backpack()) end
 	for _, b in ipairs(buttons) do
@@ -335,14 +351,14 @@ local function ApplyBags()
 	end
 	CreateCollapseButton()
 	ApplyBagCollapse()
-	local hideFrame = S:IsEnabled("bars") and db.bagFrame or false
+	local hideFrame = on and db.bagFrame or false
 	StripFrame(BagsBar, buttons, hideFrame)
 	-- older layout: micro menu and bags share one bar
 	if MicroButtonAndBagsBar then
 		local both = {}
 		for _, b in ipairs(buttons) do both[#both + 1] = b end
 		for _, b in ipairs(MicroButtons()) do both[#both + 1] = b end
-		StripFrame(MicroButtonAndBagsBar, both, hideFrame or (S:IsEnabled("bars") and db.microFrame) or false)
+		StripFrame(MicroButtonAndBagsBar, both, hideFrame or (S:IsEnabled("bars") and S.db.bars.microFrame) or false)
 	end
 end
 
@@ -356,21 +372,19 @@ end
 
 local function UpdateFade()
 	local micro, bags = Containers()
-	local db = S.db.bars
-	local on = S:IsEnabled("bars")
+	local db, bagDB = S.db.bars, S.db.bags
 	local function Fade(frame, enabled, alpha, extra)
 		if not frame then return end
-		if not (on and enabled) then frame:SetAlpha(1) return end
+		if not enabled then frame:SetAlpha(1) return end
 		local over = frame:IsMouseOver() or (extra and extra:IsShown() and extra:IsMouseOver())
 		frame:SetAlpha(over and 1 or alpha)
 	end
-	Fade(micro, db.microFade, db.microAlpha)
-	if bags ~= micro then Fade(bags, db.bagFade, db.bagAlpha, collapseButton) end
+	Fade(micro, S:IsEnabled("bars") and db.microFade, db.microAlpha)
+	if bags ~= micro then Fade(bags, S:IsEnabled("bags") and bagDB.bagFade, bagDB.bagAlpha, collapseButton) end
 end
 
 local function ApplyFade()
-	local db = S.db.bars
-	local want = S:IsEnabled("bars") and (db.microFade or db.bagFade)
+	local want = (S:IsEnabled("bars") and S.db.bars.microFade) or (S:IsEnabled("bags") and S.db.bags.bagFade)
 	if want and not fader then
 		fader = CreateFrame("Frame")
 		local elapsed = 0
@@ -412,7 +426,7 @@ local function FilteredMessages()
 end
 
 local function ShouldFilter(message)
-	local mode = S:Get("bars", "errors")
+	local mode = S:Get("chat", "errors")
 	if not mode or mode == "OFF" then return false end
 	if mode == "COMBAT" and not InCombatLockdown() then return false end
 	if mode == "ALL" then return true end
@@ -512,7 +526,7 @@ end
 ------------------------------------------------------------------------
 local function ClassColorBar(bar, unit)
 	if not bar or not unit or S.IsSecret(unit) then return end
-	if not S:Get("bars", "classColors") then
+	if not S:Get("tooltip", "classColors") then
 		if bar.sundryColored then
 			bar.sundryColored = nil
 			if bar.SetStatusBarDesaturated then bar:SetStatusBarDesaturated(false) end
@@ -546,7 +560,7 @@ local function HitIndicators()
 end
 
 local function ApplyHitText()
-	local show = not S:IsEnabled("bars") or S.db.bars.hitText
+	local show = not S:IsEnabled("tooltip") or S.db.tooltip.hitText
 	for _, region in ipairs(HitIndicators()) do SetAlphaOf(region, show and 1 or 0) end
 end
 
@@ -555,6 +569,9 @@ function M:Init()
 	TakeErrors()
 	S.Hook("ActionButton_UpdateRangeIndicator", RangeColor)
 	S.Hook("UnitFrameHealthBar_Update", ClassColorBar)
+	-- settings of this file that live on other pages
+	S:AlsoApply("bags", function() ApplyBags(); ApplyFade() end)
+	S:AlsoApply("tooltip", ApplyHitText)
 	-- micro buttons and bag slots get their art back from Blizzard on some updates
 	S.Hook("UpdateMicroButtons", function() if S:IsEnabled("bars") then ApplyMicro() end end)
 	if MicroMenu and MicroMenu.Layout then
@@ -564,7 +581,7 @@ function M:Init()
 	S:On("ACTIONBAR_SLOT_CHANGED", function() S.AfterCombat("buttonTexts", ApplyButtonTexts) end)
 	S:On("PLAYER_ENTERING_WORLD", function() C_Timer.After(1, function() M:Apply() end) end)
 	S:On("PLAYER_TARGET_CHANGED", function()
-		if S:Get("bars", "classColors") then
+		if S:Get("tooltip", "classColors") then
 			local bar = TargetFrame and (TargetFrame.healthbar or TargetFrame.HealthBar)
 			if bar then ClassColorBar(bar, "target") end
 		end

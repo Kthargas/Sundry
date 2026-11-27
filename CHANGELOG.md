@@ -2,6 +2,9 @@
 
 ## 1.2.0 - 2026-11-27
 
+- Options sorted by topic: the bag bar is on the Bags page, red error messages on "Chat & messages", class coloured health bars and portrait combat text on "Tooltip & unit frames". Your settings move along.
+- Bag bar: folding the bags away also folds the key ring and the slot frames that ignore their button's alpha.
+- `/sundry inspect` also lists art under the mouse that takes no clicks.
 - Flight time bar: counts down from the estimate already on the first flight of a route (the bar drains; past the estimate it shows +m:ss).
 - Flight times: routes you have not flown yet get an estimate from their length on the flight map and the flights you measured on the same map, or from the usual flight speed before your first flight there (shown with ~). Measured times are now also stored by route ID, so they work in every client language.
 - Sundry can ship flight times (FlightData.lua); your own measured times always win.
