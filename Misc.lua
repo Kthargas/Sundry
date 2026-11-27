@@ -67,4 +67,5 @@ end
 function M:Apply()
 	ApplyCamera()
 	ApplyMute()
+	if S.modules.flight then S:Apply("flight") end
 end

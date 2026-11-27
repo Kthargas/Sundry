@@ -18,6 +18,12 @@ local ALWAYS = {
 	"TabardFrame", "PetStableFrame", "TaxiFrame", "ItemTextFrame", "HelpFrame", "AddonList", "LootFrame",
 	"GuildRegistrarFrame", "PetitionFrame", "LFGParentFrame", "WorldStateScoreFrame",
 }
+-- Bag windows: the combined bag and every single bag (Blizzard stacks them again each time a bag opens,
+-- so they are put back after UpdateContainerFrameAnchors). A bag Sundry docks to the combined bag
+-- (frame.sundryDocked) follows that window instead.
+local BAGS = { "ContainerFrameCombinedBags" }
+for i = 1, 13 do BAGS[#BAGS + 1] = "ContainerFrame" .. i end
+
 local ON_DEMAND = {
 	Blizzard_TalentUI = { "PlayerTalentFrame" },
 	Blizzard_ClassTalentUI = { "ClassTalentFrame" },
@@ -80,7 +86,7 @@ end
 local function Restore(name)
 	local frame = managed[name]
 	local entry = Store()[name]
-	if not frame or not entry or not S:IsEnabled("windows") then return end
+	if not frame or not entry or not S:IsEnabled("windows") or frame.sundryDocked then return end
 	if Blocked(frame) then
 		S.AfterCombat("window:" .. name, function() Restore(name) end)
 		return
@@ -104,7 +110,7 @@ end
 -- Dragging and scaling
 ------------------------------------------------------------------------
 local function OnDragStart(frame)
-	if not S:Get("windows", "move") or dragging then return end
+	if not S:Get("windows", "move") or dragging or frame.sundryDocked then return end
 	local mod = MODIFIERS[S.db.windows.modifier]
 	if mod and not mod() then return end
 	if Blocked(frame) then S.Print(L.NOT_IN_COMBAT) return end
@@ -195,10 +201,12 @@ function M:Apply()
 	if not S:IsEnabled("windows") or self.initialized then return end
 	self.initialized = true
 	for _, name in ipairs(ALWAYS) do Manage(name) end
+	for _, name in ipairs(BAGS) do Manage(name) end
 	for addon, names in pairs(ON_DEMAND) do
 		S.OnAddonLoaded(addon, function()
 			for _, name in ipairs(names) do Manage(name) end
 		end)
 	end
 	S.Hook("UpdateUIPanelPositions", RestoreShown)
+	S.Hook("UpdateContainerFrameAnchors", RestoreShown)
 end

@@ -16,8 +16,8 @@
 ## What it does
 
 Sundry bundles the small things you would otherwise install ten addons for. Every module and every single
-feature can be switched on and off in Esc > Options > AddOns > Sundry (pages Loot & merchants, Windows, Bars,
-Tooltip, Chat, Automation, Camera & sound and Actions; laid out like Fray and Mundi). Comfort features start on,
+feature can be switched on and off in Esc > Options > AddOns > Sundry (pages Loot & merchants, Windows, Bags, Bars,
+Tooltip, Chat, Automation, Camera, sound & travel and Actions; laid out like Fray and Mundi). Comfort features start on,
 everything that acts on its own (automation) starts off.
 
 ### Loot & merchants
@@ -32,14 +32,19 @@ everything that acts on its own (automation) starts off.
 - **Drag Blizzard's windows** (character, spellbook, talents, quest log, friends, merchant, bank, mail, auction
   house, professions, trainer, macros, key bindings, collections, ...), optionally only while holding a key.
 - **Positions are kept** for all characters, per character or until logout. Windows you never moved stay where
-  Blizzard puts them.
+  Blizzard puts them. The bag windows can be moved too.
 - Ctrl + mouse wheel changes a window's size, Shift + Ctrl + right click resets it.
 - Windows stay on the screen.
 
+### Bags
+- **Slots filled from the top left**: the empty cells of a partly filled row go to the bottom right.
+- **Reagent bag in the bag window**, as its own area below the combined bag, opening and closing with it.
+
 ### Bars
-- **Micro menu without the frame** around each button (or a thin line), fading until mouseover, single buttons
-  hidden.
-- **Bag bar**: the same styles, fading, and an arrow next to the backpack that **folds the bag slots away**.
+- **Micro menu without its outer frame**, the buttons with or without their own frame (or a thin line), fading
+  until mouseover, single buttons hidden; the others **close up** in a direction you choose.
+- **Bag bar**: without its frame, the same styles, fading, and an arrow next to the backpack that **folds the bag
+  slots away**.
 - Red error messages (not enough energy, out of range, ...) hidden in combat, always or all of them.
 - Key binding and macro texts on the action buttons, the action bar art, red buttons when out of range.
 - Class coloured health bars and the combat text on the portraits.
@@ -54,12 +59,16 @@ everything that acts on its own (automation) starts off.
   above the chat, more lines per window and a window to copy the chat.
 
 ### Automation (all off by default, hold Shift to pause)
-- Accept and turn in quests (only without a reward to choose), skip the only option of vendors, flight masters,
-  innkeepers, trainers and bankers.
+- **Accept and turn in quests** as two switches, with the kinds of quests to accept: normal, repeatable, low
+  level, group, dungeon and raid, PvP, timed, escort and shared quests. Rewards to choose are left to you or the
+  one with the highest sell value is taken.
+- Skip the only option of vendors, flight masters, innkeepers, trainers and bankers.
 - Decline duels and guild invites, accept group invites from friends and resurrections.
 - "Take all" button in the mailbox and "Learn all" button at trainers.
 
-### Camera & sound
+### Camera, sound & travel
+- **Flight time bar**: where you are flying and how long it still takes (each route is measured on its first
+  flight).
 - Larger camera distance, a screenshot on level up, muted sounds from a list, `/rl`.
 
 ### More

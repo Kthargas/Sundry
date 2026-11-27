@@ -17,6 +17,8 @@ local function SetAlphaOf(region, alpha)
 	if region and region.SetAlpha then region:SetAlpha(alpha) end
 end
 
+local collapseButton   -- Sundry's arrow next to the backpack (created with the bag bar)
+
 -- Thin line frame from plain colour, like Mundi's "line" style
 local function LineBorder(frame)
 	if frame.sundryLine then return frame.sundryLine end
@@ -80,16 +82,91 @@ local function MicroButtonName(button)
 end
 M.MicroButtonName = MicroButtonName
 
+-- Outer frame of a bar: the textures of the bar frame itself and its decorative child frames (border,
+-- background, nine-slice). Children that hold buttons, and buttons themselves, stay untouched.
+local stripped = {}   -- region -> true, so only what Sundry faded comes back
+
+local function HoldsButton(frame, buttons)
+	for _, b in ipairs(buttons) do
+		local p = b
+		while p do
+			if p == frame then return true end
+			p = p:GetParent()
+		end
+	end
+	return false
+end
+
+local function StripFrame(frame, buttons, hide)
+	if not frame then return end
+	for _, region in ipairs({ frame:GetRegions() }) do
+		if region:GetObjectType() == "Texture" and (hide or stripped[region]) then
+			region:SetAlpha(hide and 0 or 1)
+			stripped[region] = hide or nil
+		end
+	end
+	for _, child in ipairs({ frame:GetChildren() }) do
+		local kind = child:GetObjectType()
+		if kind == "Frame" and not child:IsMouseEnabled() and not HoldsButton(child, buttons)
+			and child ~= collapseButton and (hide or stripped[child]) then
+			child:SetAlpha(hide and 0 or 1)
+			stripped[child] = hide or nil
+		end
+	end
+end
+M.StripFrame = StripFrame
+
+-- Order of the visible micro buttons when some are hidden. "BLIZZARD" keeps Blizzard's layout (a hidden
+-- button leaves a gap); the other directions line the visible buttons up from the bar's corner.
+local CHAIN = {
+	RIGHT = { "TOPLEFT", "LEFT", "RIGHT", 1, 0 },
+	LEFT = { "TOPRIGHT", "RIGHT", "LEFT", -1, 0 },
+	DOWN = { "TOPLEFT", "TOP", "BOTTOM", 0, -1 },
+	UP = { "BOTTOMLEFT", "BOTTOM", "TOP", 0, 1 },
+}
+
+local function LayoutMicro(buttons, hiddenOf)
+	local db = S.db.bars
+	local chain = S:IsEnabled("bars") and CHAIN[db.microOrder]
+	local menu = buttons[1] and buttons[1]:GetParent()
+	if not chain or not menu then return end
+	local corner, point, relPoint, dx, dy = chain[1], chain[2], chain[3], chain[4], chain[5]
+	local gap = db.microSpacing or 0
+	local prev
+	for _, b in ipairs(buttons) do
+		b:ClearAllPoints()
+		if hiddenOf(b) then
+			b:SetPoint("CENTER", menu, "CENTER")
+		elseif not prev then
+			b:SetPoint(corner, menu, corner, 0, 0)
+			prev = b
+		else
+			b:SetPoint(point, prev, relPoint, dx * gap, dy * gap)
+			prev = b
+		end
+	end
+end
+
+local laying
 local function ApplyMicro()
+	if laying then return end
+	laying = true
 	local db = S.db.bars
 	local on = S:IsEnabled("bars")
 	local style = on and db.microStyle or "BLIZZARD"
-	for _, button in ipairs(MicroButtons()) do
+	local buttons = MicroButtons()
+	local function Hidden(button) return on and db.microHide[MicroButtonName(button)] and true or false end
+	for _, button in ipairs(buttons) do
 		StyleMicroButton(button, style)
-		local hidden = on and db.microHide[MicroButtonName(button)]
+		local hidden = Hidden(button)
 		button:SetAlpha(hidden and 0 or 1)
 		if not InCombatLockdown() then button:EnableMouse(not hidden) end
 	end
+	LayoutMicro(buttons, Hidden)
+	local hideFrame = on and db.microFrame or false
+	StripFrame(MicroMenuContainer, buttons, hideFrame)
+	StripFrame(MicroMenu, buttons, hideFrame)
+	laying = nil
 end
 
 ------------------------------------------------------------------------
@@ -108,8 +185,6 @@ end
 local function Backpack()
 	return MainMenuBarBackpackButton
 end
-
-local collapseButton
 
 local function ApplyBagCollapse()
 	local on = S:Get("bars", "bagCollapse")
@@ -169,6 +244,15 @@ local function ApplyBags()
 	end
 	CreateCollapseButton()
 	ApplyBagCollapse()
+	local hideFrame = S:IsEnabled("bars") and db.bagFrame or false
+	StripFrame(BagsBar, buttons, hideFrame)
+	-- older layout: micro menu and bags share one bar
+	if MicroButtonAndBagsBar then
+		local both = {}
+		for _, b in ipairs(buttons) do both[#both + 1] = b end
+		for _, b in ipairs(MicroButtons()) do both[#both + 1] = b end
+		StripFrame(MicroButtonAndBagsBar, both, hideFrame or (S:IsEnabled("bars") and db.microFrame) or false)
+	end
 end
 
 ------------------------------------------------------------------------

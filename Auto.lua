@@ -11,34 +11,140 @@ local function Paused() return IsShiftKeyDown() end
 local function On(key) return S:Get("auto", key) and not Paused() end
 
 ------------------------------------------------------------------------
--- Quests: accept, turn in when there is no reward to choose
+-- Quests: accepting and turning in are two switches; which kinds of quests are accepted is chosen
+-- per kind. A quest that belongs to several kinds is only accepted when all of them are allowed.
 ------------------------------------------------------------------------
+local TAG_GROUP = { [1] = true }                                   -- Enum.QuestTag.Group
+local TAG_DUNGEON = { [81] = true, [85] = true, [98] = true }      -- dungeon, heroic, scenario
+local TAG_RAID = { [62] = true, [88] = true, [89] = true }         -- raid, raid (10), raid (25)
+local TAG_PVP = { [41] = true }
+
+-- Words in the quest text (English and German) for the kinds the client has no flag for.
+local WORDS = {
+	timed = { "time limit", "within %d+ minutes", "minutes to", "zeitlimit", "innerhalb von %d+ minuten", "minuten zeit" },
+	escort = { "escort", "protect .- as", "safely to", "eskort", "begleit", "geleit", "beschütz", "sicher zu" },
+}
+
+local function TextHas(kind)
+	local text = ((GetObjectiveText and GetObjectiveText() or "") .. " " .. (GetQuestText and GetQuestText() or ""))
+	if S.IsSecret(text) then return false end
+	text = text:lower()
+	for _, word in ipairs(WORDS[kind]) do
+		if text:find(word) then return true end
+	end
+	return false
+end
+
+local function Call(fn, ...)
+	if type(fn) ~= "function" then return nil end
+	local ok, result = pcall(fn, ...)
+	if ok then return result end
+end
+
+-- The kinds of the quest shown in the quest window (QUEST_DETAIL).
+local function DetailKinds()
+	local kinds = {}
+	local questID = Call(GetQuestID)
+	local Q = C_QuestLog or {}
+	if Call(QuestIsDaily) or Call(QuestIsWeekly) or (questID and Call(Q.IsRepeatableQuest, questID)) then
+		kinds.questRepeat = true
+	end
+	if questID and Call(Q.IsQuestTrivial, questID) then kinds.questTrivial = true end
+	if (Call(GetSuggestedGroupSize) or 0) > 1 then kinds.questGroup = true end
+	local tag = questID and Call(Q.GetQuestTagInfo, questID)
+	local tagID = type(tag) == "table" and tag.tagID
+	if tagID then
+		if TAG_GROUP[tagID] then kinds.questGroup = true end
+		if TAG_DUNGEON[tagID] or TAG_RAID[tagID] then kinds.questDungeon = true end
+		if TAG_PVP[tagID] then kinds.questPvP = true end
+	end
+	if (questID and (Call(Q.GetTimeAllowed, questID) or 0) > 0) or TextHas("timed") then kinds.questTimed = true end
+	if TextHas("escort") then kinds.questEscort = true end
+	return kinds
+end
+
+local function KindsAllowed(kinds)
+	local any = false
+	for key in pairs(kinds) do
+		any = true
+		if not S.db.auto[key] then return false end
+	end
+	return any or S.db.auto.questNormal
+end
+
+-- Pre-check in gossip and greeting lists (the full check runs when the quest window opens).
+local function ListAllowed(isTrivial, frequency, isRepeatable)
+	local kinds = {}
+	if isTrivial then kinds.questTrivial = true end
+	if (frequency and frequency > 0) or isRepeatable then kinds.questRepeat = true end
+	return KindsAllowed(kinds)
+end
+
 local function OnQuestDetail()
-	if not On("quests") then return end
+	if not On("questAccept") then return end
 	if QuestGetAutoAccept and QuestGetAutoAccept() then
 		if AcknowledgeAutoAcceptQuest then AcknowledgeAutoAcceptQuest() end
 		return
 	end
-	AcceptQuest()
+	if KindsAllowed(DetailKinds()) then AcceptQuest() end
+end
+
+-- A quest a group member shares (escorts and group events start like this too)
+local function OnQuestAcceptConfirm()
+	if not On("questAccept") or not S.db.auto.questShared then return end
+	if ConfirmAcceptQuest then
+		ConfirmAcceptQuest()
+		StaticPopup_Hide("QUEST_ACCEPT")
+	end
 end
 
 local function OnQuestProgress()
-	if On("quests") and IsQuestCompletable() then CompleteQuest() end
+	if On("questTurnIn") and IsQuestCompletable() then CompleteQuest() end
+end
+
+-- Sell value of a reward the player can choose (nil while the item is not known to the client yet)
+local function ChoiceValue(i)
+	local link = GetQuestItemLink and GetQuestItemLink("choice", i)
+	if not link then return nil end
+	local _, _, count = GetQuestItemInfo("choice", i)
+	local GetInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+	local price = select(11, GetInfo(link))
+	if not price then return nil end
+	return price * math.max(count or 1, 1)
 end
 
 local function OnQuestComplete()
-	if not On("quests") then return end
+	if not On("questTurnIn") then return end
+	if GetQuestMoneyToGet and (GetQuestMoneyToGet() or 0) > 0 then return end
 	local choices = GetNumQuestChoices()
-	if choices <= 1 then GetQuestReward(choices == 1 and 1 or nil) end
+	if choices <= 1 then
+		GetQuestReward(choices)
+		return
+	end
+	if S.db.auto.questReward ~= "VALUE" then return end
+	local best, bestValue = nil, -1
+	for i = 1, choices do
+		local value = ChoiceValue(i)
+		if not value then return end   -- not all rewards known yet: leave it to the player
+		if value > bestValue then best, bestValue = i, value end
+	end
+	if best then GetQuestReward(best) end
 end
 
 local function OnQuestGreeting()
-	if not On("quests") then return end
-	for i = 1, GetNumActiveQuests() do
-		local _, complete = GetActiveTitle(i)
-		if complete then SelectActiveQuest(i) return end
+	if On("questTurnIn") then
+		for i = 1, GetNumActiveQuests() do
+			local _, complete = GetActiveTitle(i)
+			if complete then SelectActiveQuest(i) return end
+		end
 	end
-	if GetNumAvailableQuests() > 0 then SelectAvailableQuest(1) end
+	if On("questAccept") then
+		for i = 1, GetNumAvailableQuests() do
+			local isTrivial, frequency, isRepeatable = nil, nil, nil
+			if GetAvailableQuestInfo then isTrivial, frequency, isRepeatable = GetAvailableQuestInfo(i) end
+			if ListAllowed(isTrivial, frequency, isRepeatable) then SelectAvailableQuest(i) return end
+		end
+	end
 end
 
 ------------------------------------------------------------------------
@@ -57,12 +163,18 @@ local SERVICE_ICONS = {
 local function OnGossipShow()
 	local G = C_GossipInfo
 	if not G or Paused() then return end
-	if S:Get("auto", "quests") then
+	if S:Get("auto", "questTurnIn") then
 		for _, quest in ipairs(G.GetActiveQuests() or {}) do
 			if quest.isComplete then G.SelectActiveQuest(quest.questID) return end
 		end
-		local available = G.GetAvailableQuests() or {}
-		if available[1] then G.SelectAvailableQuest(available[1].questID) return end
+	end
+	if S:Get("auto", "questAccept") then
+		for _, quest in ipairs(G.GetAvailableQuests() or {}) do
+			if ListAllowed(quest.isTrivial, quest.frequency, quest.repeatable) then
+				G.SelectAvailableQuest(quest.questID)
+				return
+			end
+		end
 	end
 	if not S:Get("auto", "gossip") then return end
 	if #(G.GetActiveQuests() or {}) > 0 or #(G.GetAvailableQuests() or {}) > 0 then return end
@@ -223,6 +335,7 @@ function M:Init()
 	S:On("QUEST_PROGRESS", OnQuestProgress)
 	S:On("QUEST_COMPLETE", OnQuestComplete)
 	S:On("QUEST_GREETING", OnQuestGreeting)
+	S:On("QUEST_ACCEPT_CONFIRM", OnQuestAcceptConfirm)
 	S:On("GOSSIP_SHOW", OnGossipShow)
 	S:On("DUEL_REQUESTED", OnDuel)
 	S:On("GUILD_INVITE_REQUEST", OnGuildInvite)
