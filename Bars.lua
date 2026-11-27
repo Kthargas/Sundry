@@ -174,7 +174,7 @@ end
 ------------------------------------------------------------------------
 local function BagSlots()
 	local list = {}
-	for i = 0, 3 do
+	for i = 0, 10 do
 		local slot = _G["CharacterBag" .. i .. "Slot"]
 		if slot then list[#list + 1] = slot end
 	end
@@ -186,13 +186,78 @@ local function Backpack()
 	return MainMenuBarBackpackButton
 end
 
+-- Some clients draw the empty slot backgrounds on the bar instead of on the slot buttons: textures of the
+-- bar (and its decorative child frames) that sit on a bag slot fade out with it.
+local slotArt = {}   -- region -> true while faded by the collapse
+
+local function Rect(region)
+	local left, right, top, bottom = region:GetLeft(), region:GetRight(), region:GetTop(), region:GetBottom()
+	if not (left and right and top and bottom) then return nil end
+	local owner = region.GetEffectiveScale and region or region:GetParent()
+	local s = owner and owner:GetEffectiveScale() or 1
+	return left * s, right * s, top * s, bottom * s
+end
+
+local function OnSlot(region, rects)
+	local l, r, t, b = Rect(region)
+	if not l then return false end
+	local cx, cy, w, h = (l + r) / 2, (t + b) / 2, r - l, t - b
+	for _, rect in ipairs(rects) do
+		local sl, sr, st, sb = rect[1], rect[2], rect[3], rect[4]
+		if cx >= sl - 2 and cx <= sr + 2 and cy >= sb - 2 and cy <= st + 2
+			and w <= (sr - sl) * 1.8 and h <= (st - sb) * 1.8 then
+			return true
+		end
+	end
+	return false
+end
+
+local function FadeSlotArt(slots, collapsed)
+	for region in pairs(slotArt) do
+		if not stripped[region] then region:SetAlpha(1) end
+		slotArt[region] = nil
+	end
+	if not collapsed then return end
+	local rects, holders, seen = {}, {}, {}
+	for _, slot in ipairs(slots) do
+		local l, r, t, b = Rect(slot)
+		if l then rects[#rects + 1] = { l, r, t, b } end
+		local parent = slot:GetParent()
+		if parent and not seen[parent] then seen[parent] = true holders[#holders + 1] = parent end
+	end
+	for _, bar in ipairs({ BagsBar, MicroButtonAndBagsBar }) do
+		if bar and not seen[bar] then seen[bar] = true holders[#holders + 1] = bar end
+	end
+	local function Check(region)
+		if region ~= collapseButton and not stripped[region] and OnSlot(region, rects) then
+			region:SetAlpha(0)
+			slotArt[region] = true
+		end
+	end
+	for _, holder in ipairs(holders) do
+		for _, region in ipairs({ holder:GetRegions() }) do
+			if region:GetObjectType() == "Texture" then Check(region) end
+		end
+		for _, child in ipairs({ holder:GetChildren() }) do
+			if child:GetObjectType() == "Frame" and not child:IsMouseEnabled() then
+				Check(child)
+				for _, region in ipairs({ child:GetRegions() }) do
+					if region:GetObjectType() == "Texture" then Check(region) end
+				end
+			end
+		end
+	end
+end
+
 local function ApplyBagCollapse()
 	local on = S:Get("bars", "bagCollapse")
 	local collapsed = on and S.char.bagsCollapsed
-	for _, slot in ipairs(BagSlots()) do
+	local slots = BagSlots()
+	for _, slot in ipairs(slots) do
 		slot:SetAlpha(collapsed and 0 or 1)
 		if not InCombatLockdown() then slot:EnableMouse(not collapsed) end
 	end
+	FadeSlotArt(slots, collapsed)
 	if collapseButton then
 		collapseButton:SetShown(on and true or false)
 		-- arrow points to where the bags will go
