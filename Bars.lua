@@ -125,13 +125,37 @@ local CHAIN = {
 	UP = { "BOTTOMLEFT", "BOTTOM", "TOP", 0, 1 },
 }
 
+-- Blizzard's own distance between two buttons (their art overlaps a little), read while Blizzard's layout
+-- is in place; the spacing slider is added to it.
+local natural = { x = nil, y = nil }
+
+local function ReadNaturalGap(buttons)
+	local a, b = buttons[1], buttons[2]
+	if not (a and b) then return end
+	local ax, ay = a:GetCenter()
+	local bx, by = b:GetCenter()
+	if not (ax and bx) then return end
+	if math.abs(bx - ax) >= math.abs(by - ay) then
+		natural.x = math.floor(math.abs(bx - ax) - a:GetWidth() + 0.5)
+	else
+		natural.y = math.floor(math.abs(by - ay) - a:GetHeight() + 0.5)
+	end
+end
+
 local function LayoutMicro(buttons, hiddenOf)
 	local db = S.db.bars
 	local chain = S:IsEnabled("bars") and CHAIN[db.microOrder]
 	local menu = buttons[1] and buttons[1]:GetParent()
 	if not chain or not menu then return end
 	local corner, point, relPoint, dx, dy = chain[1], chain[2], chain[3], chain[4], chain[5]
-	local gap = db.microSpacing or 0
+	local base
+	if dx ~= 0 then
+		base = natural.x or menu.childXPadding or natural.y or 0
+	else
+		base = natural.y or menu.childYPadding or natural.x or 0
+	end
+	local gap = base + (db.microSpacing or 0)
+	M.microChained = true
 	local prev
 	for _, b in ipairs(buttons) do
 		b:ClearAllPoints()
@@ -148,7 +172,7 @@ local function LayoutMicro(buttons, hiddenOf)
 end
 
 local laying
-local function ApplyMicro()
+local function ApplyMicro(fromBlizzard)
 	if laying then return end
 	laying = true
 	local db = S.db.bars
@@ -162,6 +186,8 @@ local function ApplyMicro()
 		button:SetAlpha(hidden and 0 or 1)
 		if not InCombatLockdown() then button:EnableMouse(not hidden) end
 	end
+	-- positions are Blizzard's after its own layout, and before Sundry lined the buttons up for the first time
+	if fromBlizzard == true or not M.microChained then ReadNaturalGap(buttons) end
 	LayoutMicro(buttons, Hidden)
 	local hideFrame = on and db.microFrame or false
 	StripFrame(MicroMenuContainer, buttons, hideFrame)
@@ -532,7 +558,7 @@ function M:Init()
 	-- micro buttons and bag slots get their art back from Blizzard on some updates
 	S.Hook("UpdateMicroButtons", function() if S:IsEnabled("bars") then ApplyMicro() end end)
 	if MicroMenu and MicroMenu.Layout then
-		hooksecurefunc(MicroMenu, "Layout", function() if S:IsEnabled("bars") then ApplyMicro() end end)
+		hooksecurefunc(MicroMenu, "Layout", function() if S:IsEnabled("bars") then ApplyMicro(true) end end)
 	end
 	S:On("UPDATE_BINDINGS", function() S.AfterCombat("buttonTexts", ApplyButtonTexts) end)
 	S:On("ACTIONBAR_SLOT_CHANGED", function() S.AfterCombat("buttonTexts", ApplyButtonTexts) end)
