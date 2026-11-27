@@ -29,25 +29,25 @@ local defaults = {
 	},
 	bags = {
 		fillTop = true, reagentDock = true,
+		bagFrame = true, bagStyle = "BLIZZARD", bagFade = false, bagAlpha = 0, bagCollapse = true,
 	},
 	bars = {
 		microFrame = true, microStyle = "NONE", microOrder = "BLIZZARD", microSpacing = 0,
 		microFade = false, microAlpha = 0, microHide = {},
-		bagFrame = true, bagStyle = "BLIZZARD", bagFade = false, bagAlpha = 0, bagCollapse = true,
-		errors = "COMBAT",
 		hotkeys = true, macroNames = true,
 		barArt = true,
 		rangeColor = false,
-		classColors = false, hitText = true,
 	},
 	tooltip = {
 		cursor = false, combatHide = false, combatModifier = "SHIFT",
 		classColor = true, target = true, healthBar = true, ids = false,
+		classColors = false, hitText = true,
 	},
 	chat = {
 		arrowKeys = true, keepHistory = true, historySize = 50,
 		urls = true, shortChannels = false, hideButtons = false, editTop = false,
 		lines = 128, copy = true,
+		errors = "COMBAT",
 	},
 	auto = {
 		questAccept = false, questTurnIn = false, questReward = "SKIP",
@@ -185,6 +185,18 @@ function S:Apply(name)
 		local ok, err = pcall(m.Apply, m)
 		if not ok then geterrorhandler()(err) end
 	end
+	for _, fn in ipairs(self.alsoApply[name] or {}) do
+		local ok, err = pcall(fn)
+		if not ok then geterrorhandler()(err) end
+	end
+end
+
+-- Code of one file that uses the settings of another module (for example the bag bar in Bars.lua, set on
+-- the Bags page) runs again when that module is applied.
+S.alsoApply = {}
+function S:AlsoApply(name, fn)
+	self.alsoApply[name] = self.alsoApply[name] or {}
+	table.insert(self.alsoApply[name], fn)
 end
 
 ------------------------------------------------------------------------
@@ -265,6 +277,23 @@ boot:SetScript("OnEvent", function(_, event, arg1)
 			db.auto.questTurnIn = db.auto.quests or nil
 			db.auto.quests = nil
 		end
+		-- 1.2: settings that moved to the page they belong to
+		for _, move in ipairs({
+			{ "bars", "bags", { "bagFrame", "bagStyle", "bagFade", "bagAlpha", "bagCollapse" } },
+			{ "bars", "chat", { "errors" } },
+			{ "bars", "tooltip", { "classColors", "hitText" } },
+		}) do
+			local from = db[move[1]]
+			if type(from) == "table" then
+				db[move[2]] = type(db[move[2]]) == "table" and db[move[2]] or {}
+				for _, field in ipairs(move[3]) do
+					if from[field] ~= nil then
+						if db[move[2]][field] == nil then db[move[2]][field] = from[field] end
+						from[field] = nil
+					end
+				end
+			end
+		end
 		Merge(db, defaults)
 		S.root, S.char, S.db = root, char, db
 	elseif event == "PLAYER_LOGIN" then
@@ -309,8 +338,37 @@ function S.Inspect()
 	elseif GetMouseFocus then
 		focus = GetMouseFocus()
 	end
-	if not focus or focus == WorldFrame then S.Print(L.INSPECT_NONE) return end
-	S.Print(Describe(focus))
+	if not focus or focus == WorldFrame then
+		S.Print(L.INSPECT_NONE)
+	else
+		S.Print(Describe(focus))
+		S.InspectFrame(focus)
+	end
+	S.InspectArt()
+end
+
+-- Art under the mouse that does not take clicks (frames and textures GetMouseFoci does not report)
+function S.InspectArt()
+	if not EnumerateFrames then return end
+	local found = 0
+	local frame = EnumerateFrames()
+	while frame and found < 25 do
+		if frame ~= UIParent and frame ~= WorldFrame and not frame:IsForbidden() and frame:IsVisible()
+			and frame:GetEffectiveAlpha() > 0 and frame:IsMouseOver() and not frame:IsMouseEnabled() then
+			for _, region in ipairs({ frame:GetRegions() }) do
+				if region:GetObjectType() == "Texture" and region:IsVisible() and region:GetAlpha() > 0
+					and region.IsMouseOver and region:IsMouseOver() then
+					if found == 0 then S.Print(L.INSPECT_ART) end
+					print("   " .. Describe(region))
+					found = found + 1
+				end
+			end
+		end
+		frame = EnumerateFrames(frame)
+	end
+end
+
+function S.InspectFrame(focus)
 	for _, region in ipairs({ focus:GetRegions() }) do
 		print("   " .. Describe(region))
 	end
@@ -333,6 +391,7 @@ local COMMANDS = {
 	{ "junk add | remove <item>", L.CMD_JUNK },
 	{ "mute | unmute <sound id>", L.CMD_MUTE },
 	{ "copy", L.CMD_COPY },
+	{ "flights", L.CMD_FLIGHTS },
 	{ "inspect", L.CMD_INSPECT },
 	{ "reset", L.CMD_RESET },
 }
@@ -361,6 +420,8 @@ SlashCmdList.SUNDRY = function(msg)
 		S.modules.misc:MuteCommand(cmd, rest)
 	elseif cmd == "copy" then
 		S.modules.chat:ShowCopy(DEFAULT_CHAT_FRAME)
+	elseif cmd == "flights" then
+		S.modules.flight:Export()
 	elseif cmd == "inspect" then
 		S.Inspect()
 	elseif cmd == "reset" then
