@@ -281,6 +281,16 @@ local function CopyFrame()
 	return f
 end
 
+-- Any text in the copy window (for example Sundry's flight time export)
+function M:ShowText(title, text)
+	local f = CopyFrame()
+	if f.TitleText then f.TitleText:SetText(title) end
+	f.box:SetText(text)
+	f:Show()
+	f.box:SetFocus()
+	f.box:HighlightText()
+end
+
 function M:ShowCopy(frame)
 	frame = frame or DEFAULT_CHAT_FRAME
 	if not frame or not frame.GetNumMessages then return end
@@ -293,11 +303,7 @@ function M:ShowCopy(frame)
 			lines[#lines + 1] = text
 		end
 	end
-	local f = CopyFrame()
-	f.box:SetText(table.concat(lines, "\n"))
-	f:Show()
-	f.box:SetFocus()
-	f.box:HighlightText()
+	self:ShowText(L.COPY_TITLE, table.concat(lines, "\n"))
 end
 
 local function CopyButton(frame)

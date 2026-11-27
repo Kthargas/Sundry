@@ -333,6 +333,7 @@ local COMMANDS = {
 	{ "junk add | remove <item>", L.CMD_JUNK },
 	{ "mute | unmute <sound id>", L.CMD_MUTE },
 	{ "copy", L.CMD_COPY },
+	{ "flights", L.CMD_FLIGHTS },
 	{ "inspect", L.CMD_INSPECT },
 	{ "reset", L.CMD_RESET },
 }
@@ -361,6 +362,8 @@ SlashCmdList.SUNDRY = function(msg)
 		S.modules.misc:MuteCommand(cmd, rest)
 	elseif cmd == "copy" then
 		S.modules.chat:ShowCopy(DEFAULT_CHAT_FRAME)
+	elseif cmd == "flights" then
+		S.modules.flight:Export()
 	elseif cmd == "inspect" then
 		S.Inspect()
 	elseif cmd == "reset" then

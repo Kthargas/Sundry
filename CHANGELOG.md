@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0 - 2026-11-27
+
+- Flight times: routes you have not flown yet get an estimate from their length on the flight map and the flights you measured on the same map (shown with ~). Measured times are now also stored by route ID, so they work in every client language.
+- Sundry can ship flight times (FlightData.lua); your own measured times always win.
+- `/sundry flights` (and a button on the Actions page) lists your measured routes, ready to be copied.
+
 ## 1.1.1 - 2026-11-27
 
 - Micro menu: lined up buttons keep Blizzard's own distance (their art overlaps), so the bar is no longer longer than Blizzard's; the spacing slider adds to it.

@@ -69,7 +69,8 @@ everything that acts on its own (automation) starts off.
 
 ### Camera, sound & travel
 - **Flight time bar**: where you are flying and how long it still takes (each route is measured on its first
-  flight); the flight map shows the measured time in the tooltip of each destination.
+  flight, routes not flown yet are estimated from their length); the flight map shows the time in the tooltip of
+  each destination.
 - Larger camera distance, a screenshot on level up, muted sounds from a list, `/rl`.
 
 ### More
@@ -97,6 +98,7 @@ Type `/sundry` to open the settings.
 | `/sundry junk add \| remove <item>` | Items that are never sold |
 | `/sundry mute \| unmute <sound ID>` | Muted sounds |
 | `/sundry copy` | Copy the chat |
+| `/sundry flights` | List the measured flight times to copy them |
 | `/sundry inspect` | List the frame under the mouse and its textures |
 | `/sundry reset` | Reset all settings (asks first) |
 | `/rl` | Reload the UI |
