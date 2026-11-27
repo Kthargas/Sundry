@@ -14,7 +14,7 @@ S.ICON = "Interface\\AddOns\\Sundry\\Textures\\Icon"
 -- Every module has a switch in S.db.modules and its own settings table S.db[name].
 -- Comfort features are on by default, everything that acts on its own (automation) is off.
 local defaults = {
-	modules = { loot = true, windows = true, bars = true, tooltip = true, chat = true, auto = true, misc = true },
+	modules = { loot = true, windows = true, bags = true, bars = true, tooltip = true, chat = true, auto = true, misc = true },
 	minimap = { hide = false, angle = 195 },
 	loot = {
 		fastLoot = true, bindConfirm = false,
@@ -27,9 +27,13 @@ local defaults = {
 	windows = {
 		move = true, modifier = "NONE", remember = "ACCOUNT", scale = true, clamp = true,
 	},
+	bags = {
+		fillTop = true, reagentDock = true,
+	},
 	bars = {
-		microStyle = "NONE", microFade = false, microAlpha = 0, microHide = {},
-		bagStyle = "BLIZZARD", bagFade = false, bagAlpha = 0, bagCollapse = true,
+		microFrame = true, microStyle = "NONE", microOrder = "BLIZZARD", microSpacing = 0,
+		microFade = false, microAlpha = 0, microHide = {},
+		bagFrame = true, bagStyle = "BLIZZARD", bagFade = false, bagAlpha = 0, bagCollapse = true,
 		errors = "COMBAT",
 		hotkeys = true, macroNames = true,
 		barArt = true,
@@ -46,11 +50,15 @@ local defaults = {
 		lines = 128, copy = true,
 	},
 	auto = {
-		quests = false, gossip = false, declineDuels = false, declineGuild = false,
+		questAccept = false, questTurnIn = false, questReward = "SKIP",
+		questNormal = true, questRepeat = false, questTrivial = false, questGroup = false, questDungeon = false,
+		questPvP = false, questTimed = false, questEscort = false, questShared = false,
+		gossip = false, declineDuels = false, declineGuild = false,
 		acceptInvites = false, acceptRes = false, openMail = true, trainAll = true,
 	},
 	misc = {
 		camera = false, cameraFactor = 2.6, reload = true, levelShot = false, mute = false, muted = {},
+		flightBar = true,
 	},
 }
 S.defaults = defaults
@@ -251,6 +259,12 @@ boot:SetScript("OnEvent", function(_, event, arg1)
 		local name = char.own and key or S.SHARED
 		if type(root.profiles[name]) ~= "table" then root.profiles[name] = CopyTable(shared) end
 		local db = root.profiles[name]
+		-- 1.0: one switch for accepting and turning in quests
+		if type(db.auto) == "table" and db.auto.quests ~= nil then
+			db.auto.questAccept = db.auto.quests or nil
+			db.auto.questTurnIn = db.auto.quests or nil
+			db.auto.quests = nil
+		end
 		Merge(db, defaults)
 		S.root, S.char, S.db = root, char, db
 	elseif event == "PLAYER_LOGIN" then
@@ -303,8 +317,11 @@ function S.Inspect()
 	for _, child in ipairs({ focus:GetChildren() }) do
 		print("   child: " .. Describe(child))
 	end
-	local parent = focus:GetParent()
-	if parent then print("   parent: " .. Describe(parent)) end
+	local parent, depth = focus:GetParent(), 0
+	while parent and parent ~= UIParent and depth < 6 do
+		print("   parent: " .. Describe(parent))
+		parent, depth = parent:GetParent(), depth + 1
+	end
 end
 
 ------------------------------------------------------------------------

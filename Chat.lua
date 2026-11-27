@@ -25,12 +25,22 @@ end
 
 ------------------------------------------------------------------------
 -- Arrow keys and kept history
+--
+-- Sundry keeps its own list of sent lines and walks through it with Up and Down, so it works whatever
+-- the client does with its own history (which needs Alt, or does not react at all). Lines are caught
+-- from the input box itself (its text just before Enter), so nothing of Blizzard's is needed for it.
 ------------------------------------------------------------------------
-local restoring
-local function Remember(editBox, text)
-	if restoring or not S:Get("chat", "keepHistory") then return end
-	if type(text) ~= "string" or S.IsSecret(text) or text == "" then return end
-	local list = S.char.chatHistory
+local session = {}
+local function History()
+	if S:Get("chat", "keepHistory") then return S.char.chatHistory end
+	return session
+end
+
+local function Remember(text)
+	if type(text) ~= "string" or S.IsSecret(text) then return end
+	text = strtrim(text)
+	if text == "" then return end
+	local list = History()
 	for i = #list, 1, -1 do
 		if list[i] == text then table.remove(list, i) end
 	end
@@ -39,12 +49,57 @@ local function Remember(editBox, text)
 	while #list > max do table.remove(list, 1) end
 end
 
-local function SetupEditBox(editBox)
-	if editBox.sundry then return end
-	editBox.sundry = true
-	if editBox.AddHistoryLine then
-		hooksecurefunc(editBox, "AddHistoryLine", Remember)
+local function Browse(box, step)
+	local list = History()
+	if #list == 0 then return end
+	local index = box.sundryIndex
+	if not index then
+		if step > 0 then return end
+		box.sundryDraft = box:GetText()
+		index = #list + 1
 	end
+	index = index + step
+	if index < 1 then index = 1 end
+	box.sundryBrowsing = true
+	if index > #list then
+		box.sundryIndex = nil
+		box:SetText(box.sundryDraft or "")
+	else
+		box.sundryIndex = index
+		box:SetText(list[index])
+	end
+	box:SetCursorPosition(#box:GetText())
+	box.sundryBrowsing = nil
+end
+
+local function OnArrow(box, key)
+	if not S:Get("chat", "arrowKeys") or IsAltKeyDown() then return end
+	-- the key can reach both handlers below; act once per key press
+	local now = GetTime()
+	if box.sundryKeyTime == now and box.sundryKey == key then return end
+	box.sundryKeyTime, box.sundryKey = now, key
+	if key == "UP" then Browse(box, -1) elseif key == "DOWN" then Browse(box, 1) end
+end
+
+local function SetupEditBox(box)
+	if box.sundry then return end
+	box.sundry = true
+	box:HookScript("OnKeyDown", function(self, key) OnArrow(self, key) end)
+	box:HookScript("OnArrowPressed", function(self, key) OnArrow(self, key) end)
+	box:HookScript("OnTextChanged", function(self, userInput)
+		if self.sundryBrowsing then return end
+		local text = self:GetText()
+		if not S.IsSecret(text) and text ~= "" then self.sundryLast = text end
+		if userInput then self.sundryIndex = nil end
+	end)
+	-- Enter: Blizzard has sent the line and cleared the box by now; the last text is what was sent
+	box:HookScript("OnEnterPressed", function(self)
+		if self.sundryLast then Remember(self.sundryLast) end
+		self.sundryLast, self.sundryIndex, self.sundryDraft = nil, nil, nil
+	end)
+	box:HookScript("OnEscapePressed", function(self)
+		self.sundryLast, self.sundryIndex, self.sundryDraft = nil, nil, nil
+	end)
 end
 
 local function ApplyEditBoxes()
@@ -54,7 +109,8 @@ local function ApplyEditBoxes()
 		local box = EditBox(frame)
 		if box then
 			SetupEditBox(box)
-			if box.SetAltArrowKeyMode then box:SetAltArrowKeyMode(not (on and db.arrowKeys)) end
+			-- without Alt mode the box keeps Left/Right for the cursor; Up/Down are Sundry's
+			if on and db.arrowKeys and box.SetAltArrowKeyMode then box:SetAltArrowKeyMode(false) end
 			if on and db.editTop then
 				box.sundryMoved = true
 				box:ClearAllPoints()
@@ -68,19 +124,6 @@ local function ApplyEditBoxes()
 			end
 		end
 	end
-end
-
--- Put the kept lines back into the input history (all chat windows share ChatFrame1's box by default)
-local function RestoreHistory()
-	if not S:Get("chat", "keepHistory") then return end
-	restoring = true
-	for _, frame in ipairs(ChatFrames()) do
-		local box = EditBox(frame)
-		if box and box.AddHistoryLine then
-			for _, text in ipairs(S.char.chatHistory) do box:AddHistoryLine(text) end
-		end
-	end
-	restoring = nil
 end
 
 ------------------------------------------------------------------------
@@ -292,7 +335,6 @@ function M:Init()
 	for _, event in ipairs(URL_EVENTS) do AddFilter(event, UrlFilter) end
 	S.Hook("SetItemRef", OnLink)
 	S.Hook("FCF_OpenTemporaryWindow", function() M:Apply() end)
-	RestoreHistory()
 end
 
 function M:Apply()

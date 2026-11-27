@@ -102,7 +102,7 @@ local STYLE_LIST = {
 function O:BuildGeneral(category, layout)
 	Header(layout, L.SECTION_MODULES)
 	for _, entry in ipairs({
-		{ "loot", L.PAGE_LOOT }, { "windows", L.PAGE_WINDOWS }, { "bars", L.PAGE_BARS }, { "tooltip", L.PAGE_TOOLTIP },
+		{ "loot", L.PAGE_LOOT }, { "windows", L.PAGE_WINDOWS }, { "bags", L.PAGE_BAGS }, { "bars", L.PAGE_BARS }, { "tooltip", L.PAGE_TOOLTIP },
 		{ "chat", L.PAGE_CHAT }, { "auto", L.PAGE_AUTO }, { "misc", L.PAGE_MISC },
 	}) do
 		local name = entry[1]
@@ -162,12 +162,26 @@ function O:BuildWindows(category, layout)
 	Dep(self:Checkbox(category, "windows", "clamp", L.CLAMP, L.CLAMP_TT))
 end
 
+function O:BuildBags(category, layout)
+	local Dep = self:Module(category, layout, "bags", L.PAGE_BAGS, L.BAGS_TT)
+	Header(layout, L.SECTION_BAGWINDOW)
+	Dep(self:Checkbox(category, "bags", "fillTop", L.BAG_FILL_TOP, L.BAG_FILL_TOP_TT))
+	Dep(self:Checkbox(category, "bags", "reagentDock", L.REAGENT_DOCK, L.REAGENT_DOCK_TT))
+end
+
 function O:BuildBars(category, layout)
 	local Dep = self:Module(category, layout, "bars", L.PAGE_BARS)
 	local B = S.modules.bars
 
 	Header(layout, L.SECTION_MICRO)
+	Dep(self:Checkbox(category, "bars", "microFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
 	Dep(self:Dropdown(category, "bars", "microStyle", L.MICRO_STYLE, L.MICRO_STYLE_TT, STYLE_LIST))
+	local order = Dep(self:Dropdown(category, "bars", "microOrder", L.MICRO_ORDER, L.MICRO_ORDER_TT, {
+		{ "BLIZZARD", L.ORDER_BLIZZARD }, { "RIGHT", L.ORDER_RIGHT }, { "LEFT", L.ORDER_LEFT },
+		{ "DOWN", L.ORDER_DOWN }, { "UP", L.ORDER_UP },
+	}))
+	Dep(self:Slider(category, "bars", "microSpacing", L.MICRO_SPACING, nil, -6, 12, 1), order,
+		function() return S.db.bars.microOrder ~= "BLIZZARD" end)
 	local fade = Dep(self:Checkbox(category, "bars", "microFade", L.FADE, L.FADE_TT))
 	Dep(self:Slider(category, "bars", "microAlpha", L.FADE_ALPHA, nil, 0, 1, 0.05, Percent), fade,
 		function() return S.db.bars.microFade end)
@@ -189,6 +203,7 @@ function O:BuildBars(category, layout)
 	end
 
 	Header(layout, L.SECTION_BAGS)
+	Dep(self:Checkbox(category, "bars", "bagFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
 	Dep(self:Dropdown(category, "bars", "bagStyle", L.BAG_STYLE, nil, STYLE_LIST))
 	Dep(self:Checkbox(category, "bars", "bagCollapse", L.BAG_COLLAPSE, L.BAG_COLLAPSE_TT))
 	local bagFade = Dep(self:Checkbox(category, "bars", "bagFade", L.FADE, L.FADE_TT))
@@ -243,8 +258,18 @@ end
 
 function O:BuildAuto(category, layout)
 	local Dep = self:Module(category, layout, "auto", L.PAGE_AUTO, L.AUTO_TT)
+	Header(layout, L.SECTION_QUESTS)
+	local accept = Dep(self:Checkbox(category, "auto", "questAccept", L.QUEST_ACCEPT, L.QUEST_ACCEPT_TT))
+	local function Accepting() return S.db.auto.questAccept end
+	for _, kind in ipairs({ "Normal", "Repeat", "Trivial", "Group", "Dungeon", "PvP", "Timed", "Escort", "Shared" }) do
+		local key = "QUEST_" .. kind:upper()
+		Dep(self:Checkbox(category, "auto", "quest" .. kind, L[key], L[key .. "_TT"]), accept, Accepting)
+	end
+	local turnIn = Dep(self:Checkbox(category, "auto", "questTurnIn", L.QUEST_TURNIN, L.QUEST_TURNIN_TT))
+	Dep(self:Dropdown(category, "auto", "questReward", L.QUEST_REWARD, L.QUEST_REWARD_TT, {
+		{ "SKIP", L.QUEST_REWARD_SKIP }, { "VALUE", L.QUEST_REWARD_VALUE },
+	}), turnIn, function() return S.db.auto.questTurnIn end)
 	Header(layout, L.SECTION_NPC)
-	Dep(self:Checkbox(category, "auto", "quests", L.AUTO_QUESTS, L.AUTO_QUESTS_TT))
 	Dep(self:Checkbox(category, "auto", "gossip", L.AUTO_GOSSIP, L.AUTO_GOSSIP_TT))
 	Dep(self:Checkbox(category, "auto", "openMail", L.AUTO_MAIL, L.AUTO_MAIL_TT))
 	Dep(self:Checkbox(category, "auto", "trainAll", L.AUTO_TRAINER, L.AUTO_TRAINER_TT))
@@ -262,6 +287,8 @@ function O:BuildMisc(category, layout)
 	Dep(self:Slider(category, "misc", "cameraFactor", L.CAMERA_FACTOR, L.CAMERA_FACTOR_TT, 1, 4, 0.1, Factor), cam,
 		function() return S.db.misc.camera end)
 	Dep(self:Checkbox(category, "misc", "levelShot", L.LEVEL_SHOT, nil))
+	Header(layout, L.SECTION_TRAVEL)
+	Dep(self:Checkbox(category, "misc", "flightBar", L.FLIGHT_BAR, L.FLIGHT_BAR_TT))
 	Header(layout, L.SECTION_SOUND)
 	Dep(self:Checkbox(category, "misc", "mute", L.MUTE, L.MUTE_TT))
 	Header(layout, L.SECTION_COMMANDS)
@@ -311,6 +338,11 @@ function O:CreateActionsPanel()
 
 	Section(L.PAGE_WINDOWS)
 	Row(L.WINDOW_POSITIONS, L.RESET_BTN, L.WINDOW_POSITIONS_TT, function() S.modules.windows:ResetAll() end)
+	Section(L.SECTION_TRAVEL)
+	Row(L.FLIGHT_TIMES, L.RESET_BTN, L.FLIGHT_TIMES_TT, function()
+		S.modules.flight:ResetRoutes()
+		S.Print(L.FLIGHT_TIMES_CLEARED)
+	end)
 	Section(L.PAGE_CHAT)
 	Row(L.COPY_TITLE, L.OPEN_BTN, L.COPY_ACTION_TT, function() S.modules.chat:ShowCopy(DEFAULT_CHAT_FRAME) end)
 	Row(L.CLEAR_HISTORY, L.CLEAR_BTN, L.CLEAR_HISTORY_TT, function()
@@ -339,6 +371,7 @@ function O:Init()
 	end
 	Sub(L.PAGE_LOOT, O.BuildLoot)
 	Sub(L.PAGE_WINDOWS, O.BuildWindows)
+	Sub(L.PAGE_BAGS, O.BuildBags)
 	Sub(L.PAGE_BARS, O.BuildBars)
 	Sub(L.PAGE_TOOLTIP, O.BuildTooltip)
 	Sub(L.PAGE_CHAT, O.BuildChat)
