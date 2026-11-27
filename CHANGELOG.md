@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0 - 2026-11-27
+
+- Bag bar: direction of the bag slots from the backpack (Blizzard, to the right, to the left, upwards, downwards); the collapse arrow moves to the other side of the backpack and points the right way.
+
 ## 1.2.2 - 2026-11-27
 
 - Bag bar: the bag icons come back when the bags are unfolded.

@@ -306,8 +306,9 @@ local function ApplyBagCollapse()
 	FadeSlotArt(slots, collapsed)
 	if collapseButton then
 		collapseButton:SetShown(on and true or false)
-		-- arrow points to where the bags will go
-		collapseButton.arrow:SetRotation(collapsed and math.pi or 0)
+		-- arrow points to where the bags will go (turned with the bag bar's direction)
+		local turn = ({ LEFT = math.pi, UP = -math.pi / 2, DOWN = math.pi / 2 })[S.db.bags.bagDirection] or 0
+		collapseButton.arrow:SetRotation((collapsed and math.pi or 0) + turn)
 	end
 	-- Blizzard's own toggle (newer clients) would fight with Sundry's: fade it out while Sundry's is on.
 	if BagBarExpandToggle then
@@ -342,6 +343,66 @@ local function CreateCollapseButton()
 	collapseButton = b
 end
 
+-- Direction of the bag bar: the bag slots lined up from the backpack to the right, left, up or down.
+-- "BLIZZARD" keeps Blizzard's layout. The collapse arrow sits on the other side of the backpack.
+local BAG_CHAIN = {
+	RIGHT = { "LEFT", "RIGHT", 1, 0 },
+	LEFT = { "RIGHT", "LEFT", -1, 0 },
+	UP = { "BOTTOM", "TOP", 0, 1 },
+	DOWN = { "TOP", "BOTTOM", 0, -1 },
+}
+local ARROW_SIDE = {   -- point of the arrow, point on the backpack, x, y, width, height
+	BLIZZARD = { "RIGHT", "LEFT", -2, 0, 12, 22 },
+	RIGHT = { "RIGHT", "LEFT", -2, 0, 12, 22 },
+	LEFT = { "LEFT", "RIGHT", 2, 0, 12, 22 },
+	UP = { "TOP", "BOTTOM", 0, -2, 22, 12 },
+	DOWN = { "BOTTOM", "TOP", 0, 2, 22, 12 },
+}
+local bagGap        -- Blizzard's own distance between two bag slots
+local bagsChained
+
+local function LayoutBags()
+	local pack = Backpack()
+	if not pack then return end
+	local dir = S:IsEnabled("bags") and S.db.bags.bagDirection or "BLIZZARD"
+	local chain = BAG_CHAIN[dir]
+	local slots = BagSlots()
+	if not bagsChained and slots[1] and slots[2] then
+		local ax, ay = slots[1]:GetCenter()
+		local bx, by = slots[2]:GetCenter()
+		if ax and bx then
+			local d = math.max(math.abs(bx - ax), math.abs(by - ay))
+			bagGap = math.floor(d - slots[1]:GetWidth() + 0.5)
+		end
+	end
+	if chain then
+		if InCombatLockdown() and pack:IsProtected() then
+			S.AfterCombat("bagLayout", LayoutBags)
+			return
+		end
+		local point, relPoint, dx, dy = chain[1], chain[2], chain[3], chain[4]
+		local gap = bagGap or 4
+		local prev = pack
+		for _, slot in ipairs(slots) do
+			slot:ClearAllPoints()
+			slot:SetPoint(point, prev, relPoint, dx * gap, dy * gap)
+			prev = slot
+		end
+		bagsChained = true
+	elseif bagsChained and BagsBar and BagsBar.Layout then
+		-- back to Blizzard's own layout
+		bagsChained = nil
+		pcall(BagsBar.Layout, BagsBar)
+	end
+	if collapseButton then
+		local side = ARROW_SIDE[dir] or ARROW_SIDE.BLIZZARD
+		collapseButton:ClearAllPoints()
+		collapseButton:SetPoint(side[1], pack, side[2], side[3], side[4])
+		collapseButton:SetSize(side[5], side[6])
+	end
+end
+M.LayoutBags = LayoutBags
+
 local function ApplyBags()
 	local db = S.db.bags
 	local on = S:IsEnabled("bags")
@@ -355,6 +416,7 @@ local function ApplyBags()
 		ShowLine(b, style == "LINE")
 	end
 	CreateCollapseButton()
+	LayoutBags()
 	ApplyBagCollapse()
 	local hideFrame = on and db.bagFrame or false
 	StripFrame(BagsBar, buttons, hideFrame)
@@ -580,7 +642,10 @@ function M:Init()
 	-- Blizzard redraws the bag slots when bags change: fold them again
 	S:On("BAG_UPDATE_DELAYED", function() if S.char.bagsCollapsed then ApplyBagCollapse() end end)
 	if BagsBar and BagsBar.Layout then
-		hooksecurefunc(BagsBar, "Layout", function() if S.char.bagsCollapsed then ApplyBagCollapse() end end)
+		hooksecurefunc(BagsBar, "Layout", function()
+			if bagsChained then LayoutBags() end
+			if S.char.bagsCollapsed then ApplyBagCollapse() end
+		end)
 	end
 	-- micro buttons and bag slots get their art back from Blizzard on some updates
 	S.Hook("UpdateMicroButtons", function() if S:IsEnabled("bars") then ApplyMicro() end end)

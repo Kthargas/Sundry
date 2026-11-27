@@ -30,6 +30,7 @@ local defaults = {
 	bags = {
 		fillTop = true, reagentDock = true,
 		bagFrame = true, bagStyle = "BLIZZARD", bagFade = false, bagAlpha = 0, bagCollapse = true,
+		bagDirection = "BLIZZARD",
 	},
 	bars = {
 		microFrame = true, microStyle = "NONE", microOrder = "BLIZZARD", microSpacing = 0,

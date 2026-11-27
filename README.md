@@ -44,7 +44,7 @@ everything that acts on its own (automation) starts off.
 ### Bars
 - **Micro menu without its outer frame**, the buttons with or without their own frame (or a thin line), fading
   until mouseover, single buttons hidden; the others **close up** in a direction you choose.
-- **Bag bar**: without its frame, the same styles, fading, and an arrow next to the backpack that **folds the bag
+- **Bag bar**: in a direction you choose, without its frame, the same styles, fading, and an arrow next to the backpack that **folds the bag
   slots away**.
 - Red error messages (not enough energy, out of range, ...) hidden in combat, always or all of them.
 - Key binding and macro texts on the action buttons, the action bar art, red buttons when out of range.

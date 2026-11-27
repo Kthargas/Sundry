@@ -170,6 +170,10 @@ function O:BuildBags(category, layout)
 
 	Header(layout, L.SECTION_BAGS)
 	Dep(self:Checkbox(category, "bags", "bagCollapse", L.BAG_COLLAPSE, L.BAG_COLLAPSE_TT))
+	Dep(self:Dropdown(category, "bags", "bagDirection", L.BAG_DIRECTION, L.BAG_DIRECTION_TT, {
+		{ "BLIZZARD", L.STYLE_BLIZZARD }, { "RIGHT", L.DIR_RIGHT }, { "LEFT", L.DIR_LEFT },
+		{ "UP", L.DIR_UP }, { "DOWN", L.DIR_DOWN },
+	}))
 	Dep(self:Checkbox(category, "bags", "bagFrame", L.BAR_FRAME, L.BAR_FRAME_TT))
 	Dep(self:Dropdown(category, "bags", "bagStyle", L.BAG_STYLE, nil, STYLE_LIST))
 	local bagFade = Dep(self:Checkbox(category, "bags", "bagFade", L.FADE, L.FADE_TT))
