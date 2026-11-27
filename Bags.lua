@@ -94,17 +94,9 @@ local function FindReagentFrame()
 	end
 end
 
-local function SetArtShown(frame, shown)
-	for _, key in ipairs({ "PortraitContainer", "PortraitButton", "Portrait" }) do
-		local region = frame[key]
-		if region and region.SetAlpha then region:SetAlpha(shown and 1 or 0) end
-	end
-end
-
 local function Undock(frame)
 	if not frame or not frame.sundryDocked then return end
 	frame.sundryDocked = nil
-	SetArtShown(frame, true)
 	if frame.UpdateItemLayout then pcall(frame.UpdateItemLayout, frame) end
 	if UpdateContainerFrameAnchors then pcall(UpdateContainerFrameAnchors) end
 end
@@ -117,7 +109,6 @@ local function Dock(combined, grid)
 	local own = ReadGrid(buttons)
 	if not own then return end
 	reagent.sundryDocked = true
-	SetArtShown(reagent, false)
 	if math.abs(reagent:GetScale() - combined:GetScale()) > 0.001 then
 		reagent:SetScale(combined:GetScale())
 		own = ReadGrid(buttons)

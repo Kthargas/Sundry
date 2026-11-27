@@ -125,13 +125,37 @@ local CHAIN = {
 	UP = { "BOTTOMLEFT", "BOTTOM", "TOP", 0, 1 },
 }
 
+-- Blizzard's own distance between two buttons (their art overlaps a little), read while Blizzard's layout
+-- is in place; the spacing slider is added to it.
+local natural = { x = nil, y = nil }
+
+local function ReadNaturalGap(buttons)
+	local a, b = buttons[1], buttons[2]
+	if not (a and b) then return end
+	local ax, ay = a:GetCenter()
+	local bx, by = b:GetCenter()
+	if not (ax and bx) then return end
+	if math.abs(bx - ax) >= math.abs(by - ay) then
+		natural.x = math.floor(math.abs(bx - ax) - a:GetWidth() + 0.5)
+	else
+		natural.y = math.floor(math.abs(by - ay) - a:GetHeight() + 0.5)
+	end
+end
+
 local function LayoutMicro(buttons, hiddenOf)
 	local db = S.db.bars
 	local chain = S:IsEnabled("bars") and CHAIN[db.microOrder]
 	local menu = buttons[1] and buttons[1]:GetParent()
 	if not chain or not menu then return end
 	local corner, point, relPoint, dx, dy = chain[1], chain[2], chain[3], chain[4], chain[5]
-	local gap = db.microSpacing or 0
+	local base
+	if dx ~= 0 then
+		base = natural.x or menu.childXPadding or natural.y or 0
+	else
+		base = natural.y or menu.childYPadding or natural.x or 0
+	end
+	local gap = base + (db.microSpacing or 0)
+	M.microChained = true
 	local prev
 	for _, b in ipairs(buttons) do
 		b:ClearAllPoints()
@@ -148,7 +172,7 @@ local function LayoutMicro(buttons, hiddenOf)
 end
 
 local laying
-local function ApplyMicro()
+local function ApplyMicro(fromBlizzard)
 	if laying then return end
 	laying = true
 	local db = S.db.bars
@@ -162,6 +186,8 @@ local function ApplyMicro()
 		button:SetAlpha(hidden and 0 or 1)
 		if not InCombatLockdown() then button:EnableMouse(not hidden) end
 	end
+	-- positions are Blizzard's after its own layout, and before Sundry lined the buttons up for the first time
+	if fromBlizzard == true or not M.microChained then ReadNaturalGap(buttons) end
 	LayoutMicro(buttons, Hidden)
 	local hideFrame = on and db.microFrame or false
 	StripFrame(MicroMenuContainer, buttons, hideFrame)
@@ -174,7 +200,7 @@ end
 ------------------------------------------------------------------------
 local function BagSlots()
 	local list = {}
-	for i = 0, 3 do
+	for i = 0, 10 do
 		local slot = _G["CharacterBag" .. i .. "Slot"]
 		if slot then list[#list + 1] = slot end
 	end
@@ -186,13 +212,78 @@ local function Backpack()
 	return MainMenuBarBackpackButton
 end
 
+-- Some clients draw the empty slot backgrounds on the bar instead of on the slot buttons: textures of the
+-- bar (and its decorative child frames) that sit on a bag slot fade out with it.
+local slotArt = {}   -- region -> true while faded by the collapse
+
+local function Rect(region)
+	local left, right, top, bottom = region:GetLeft(), region:GetRight(), region:GetTop(), region:GetBottom()
+	if not (left and right and top and bottom) then return nil end
+	local owner = region.GetEffectiveScale and region or region:GetParent()
+	local s = owner and owner:GetEffectiveScale() or 1
+	return left * s, right * s, top * s, bottom * s
+end
+
+local function OnSlot(region, rects)
+	local l, r, t, b = Rect(region)
+	if not l then return false end
+	local cx, cy, w, h = (l + r) / 2, (t + b) / 2, r - l, t - b
+	for _, rect in ipairs(rects) do
+		local sl, sr, st, sb = rect[1], rect[2], rect[3], rect[4]
+		if cx >= sl - 2 and cx <= sr + 2 and cy >= sb - 2 and cy <= st + 2
+			and w <= (sr - sl) * 1.8 and h <= (st - sb) * 1.8 then
+			return true
+		end
+	end
+	return false
+end
+
+local function FadeSlotArt(slots, collapsed)
+	for region in pairs(slotArt) do
+		if not stripped[region] then region:SetAlpha(1) end
+		slotArt[region] = nil
+	end
+	if not collapsed then return end
+	local rects, holders, seen = {}, {}, {}
+	for _, slot in ipairs(slots) do
+		local l, r, t, b = Rect(slot)
+		if l then rects[#rects + 1] = { l, r, t, b } end
+		local parent = slot:GetParent()
+		if parent and not seen[parent] then seen[parent] = true holders[#holders + 1] = parent end
+	end
+	for _, bar in ipairs({ BagsBar, MicroButtonAndBagsBar }) do
+		if bar and not seen[bar] then seen[bar] = true holders[#holders + 1] = bar end
+	end
+	local function Check(region)
+		if region ~= collapseButton and not stripped[region] and OnSlot(region, rects) then
+			region:SetAlpha(0)
+			slotArt[region] = true
+		end
+	end
+	for _, holder in ipairs(holders) do
+		for _, region in ipairs({ holder:GetRegions() }) do
+			if region:GetObjectType() == "Texture" then Check(region) end
+		end
+		for _, child in ipairs({ holder:GetChildren() }) do
+			if child:GetObjectType() == "Frame" and not child:IsMouseEnabled() then
+				Check(child)
+				for _, region in ipairs({ child:GetRegions() }) do
+					if region:GetObjectType() == "Texture" then Check(region) end
+				end
+			end
+		end
+	end
+end
+
 local function ApplyBagCollapse()
 	local on = S:Get("bars", "bagCollapse")
 	local collapsed = on and S.char.bagsCollapsed
-	for _, slot in ipairs(BagSlots()) do
+	local slots = BagSlots()
+	for _, slot in ipairs(slots) do
 		slot:SetAlpha(collapsed and 0 or 1)
 		if not InCombatLockdown() then slot:EnableMouse(not collapsed) end
 	end
+	FadeSlotArt(slots, collapsed)
 	if collapseButton then
 		collapseButton:SetShown(on and true or false)
 		-- arrow points to where the bags will go
@@ -467,7 +558,7 @@ function M:Init()
 	-- micro buttons and bag slots get their art back from Blizzard on some updates
 	S.Hook("UpdateMicroButtons", function() if S:IsEnabled("bars") then ApplyMicro() end end)
 	if MicroMenu and MicroMenu.Layout then
-		hooksecurefunc(MicroMenu, "Layout", function() if S:IsEnabled("bars") then ApplyMicro() end end)
+		hooksecurefunc(MicroMenu, "Layout", function() if S:IsEnabled("bars") then ApplyMicro(true) end end)
 	end
 	S:On("UPDATE_BINDINGS", function() S.AfterCombat("buttonTexts", ApplyButtonTexts) end)
 	S:On("ACTIONBAR_SLOT_CHANGED", function() S.AfterCombat("buttonTexts", ApplyButtonTexts) end)

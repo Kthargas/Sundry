@@ -110,6 +110,10 @@ end
 -- Dragging and scaling
 ------------------------------------------------------------------------
 local function OnDragStart(frame)
+	-- a bag docked to the combined bag moves the combined bag (it follows)
+	if frame.sundryDocked and ContainerFrameCombinedBags and managed.ContainerFrameCombinedBags then
+		frame = ContainerFrameCombinedBags
+	end
 	if not S:Get("windows", "move") or dragging or frame.sundryDocked then return end
 	local mod = MODIFIERS[S.db.windows.modifier]
 	if mod and not mod() then return end
@@ -119,6 +123,7 @@ local function OnDragStart(frame)
 end
 
 local function OnDragStop(frame)
+	if frame.sundryDocked and dragging == ContainerFrameCombinedBags then frame = dragging end
 	if dragging ~= frame then return end
 	dragging = nil
 	frame:StopMovingOrSizing()
@@ -154,6 +159,61 @@ local function OnMouseUp(frame, button)
 	Store()[frame.sundryName] = nil
 	frame:SetScale(frame.sundryScale or 1)
 	S.Print(L.WINDOW_RESET:format(frame.sundryName))
+end
+
+------------------------------------------------------------------------
+-- Bag windows: Blizzard opens the bag menu (sorting, bag settings) with a left click on the portrait and
+-- title. Sundry lays its own handle over them: dragging moves the window, a right click opens the menu.
+------------------------------------------------------------------------
+local function OpenBagMenu(frame)
+	local button = frame.PortraitButton
+	if not button then return end
+	if button.OpenMenu then
+		button:OpenMenu()
+	elseif button:GetScript("OnMouseDown") then
+		button:GetScript("OnMouseDown")(button, "LeftButton")
+	elseif button:GetScript("OnClick") then
+		button:GetScript("OnClick")(button, "LeftButton")
+	end
+end
+
+local function Handle(frame, anchorTo)
+	local h = CreateFrame("Frame", nil, frame)
+	h:SetFrameLevel(frame:GetFrameLevel() + 20)
+	if anchorTo then
+		h:SetAllPoints(anchorTo)
+	else
+		h:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+		h:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", -28, -22)
+	end
+	h:EnableMouse(true)
+	h:RegisterForDrag("LeftButton")
+	h:SetScript("OnDragStart", function() OnDragStart(frame) end)
+	h:SetScript("OnDragStop", function() OnDragStop(frame) end)
+	h:SetScript("OnMouseUp", function(_, button)
+		if button == "RightButton" then OpenBagMenu(frame) end
+	end)
+	h:SetScript("OnHide", function() if dragging then OnDragStop(frame) end end)
+	return h
+end
+
+local function AddBagHandles(frame)
+	if frame.sundryHandles then return end
+	frame.sundryHandles = {
+		Handle(frame, frame.TitleContainer),
+		Handle(frame, frame.PortraitButton or frame.PortraitContainer),
+	}
+end
+
+local function UpdateBagHandles()
+	local on = S:Get("windows", "move") and true or false
+	for name, frame in pairs(managed) do
+		if frame.sundryHandles then
+			for _, h in ipairs(frame.sundryHandles) do h:SetShown(on) end
+		elseif on and name:find("^ContainerFrame") then
+			AddBagHandles(frame)
+		end
+	end
 end
 
 local function Manage(name)
@@ -198,6 +258,7 @@ end
 -- Hooks are only set once the module is on; switching it off later stops dragging and restoring
 -- (the hooks check the switch).
 function M:Apply()
+	if self.initialized then UpdateBagHandles() end
 	if not S:IsEnabled("windows") or self.initialized then return end
 	self.initialized = true
 	for _, name in ipairs(ALWAYS) do Manage(name) end
@@ -209,4 +270,5 @@ function M:Apply()
 	end
 	S.Hook("UpdateUIPanelPositions", RestoreShown)
 	S.Hook("UpdateContainerFrameAnchors", RestoreShown)
+	UpdateBagHandles()
 end

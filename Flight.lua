@@ -47,6 +47,30 @@ local function OnTakeTaxiNode(index)
 end
 
 ------------------------------------------------------------------------
+-- Flight map: the measured time in the tooltip of a destination (its first line is the node's name)
+------------------------------------------------------------------------
+local function MapShown()
+	return (TaxiFrame and TaxiFrame:IsShown()) or (FlightMapFrame and FlightMapFrame:IsShown())
+end
+
+local function OnTooltipShow(tooltip)
+	if tooltip.sundryFlight or not Enabled() or not MapShown() then return end
+	local line = _G[tooltip:GetName() .. "TextLeft1"]
+	local to = line and line:GetText()
+	local from = CurrentNodeName()
+	if not to or not from or S.IsSecret(to) or S.IsSecret(from) or to == from then return end
+	local total = Routes()[RouteKey(from, to)]
+	tooltip.sundryFlight = true
+	if total then
+		tooltip:AddLine(L.FLIGHT_TIME:format(Clock(total)), 1, 1, 1)
+	else
+		tooltip:AddLine(L.FLIGHT_TIME_UNKNOWN, 0.6, 0.6, 0.6)
+	end
+	tooltip:Show()
+	tooltip.sundryFlight = nil
+end
+
+------------------------------------------------------------------------
 -- The bar (Blizzard's status bar texture and tooltip border)
 ------------------------------------------------------------------------
 local function SavePosition()
@@ -209,6 +233,7 @@ end
 
 function M:Init()
 	S.Hook("TakeTaxiNode", OnTakeTaxiNode)
+	GameTooltip:HookScript("OnShow", OnTooltipShow)
 	S.Hook("TaxiRequestEarlyLanding", function() if flight then flight.early = true end end)
 	S:On("PLAYER_CONTROL_LOST", function() C_Timer.After(0.5, Check) end)
 	S:On("PLAYER_CONTROL_GAINED", function() C_Timer.After(0.2, Check) end)
