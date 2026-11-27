@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1 - 2026-11-27
+
+- Bag bar: folding the bags away also hides the gold slot frames (each texture and child frame of a slot is faded on its own), and the bags stay folded when Blizzard redraws the slots.
+
 ## 1.2.0 - 2026-11-27
 
 - Options sorted by topic: the bag bar is on the Bags page, red error messages on "Chat & messages", class coloured health bars and portrait combat text on "Tooltip & unit frames". Your settings move along.

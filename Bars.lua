@@ -285,9 +285,12 @@ local function ApplyBagCollapse()
 	for _, slot in ipairs(slots) do
 		slot:SetAlpha(collapsed and 0 or 1)
 		if not InCombatLockdown() then slot:EnableMouse(not collapsed) end
-		-- frame art that ignores the button's alpha (newer action bar style slots)
-		for _, region in ipairs({ slot:GetRegions() }) do
-			if region.IsIgnoringParentAlpha and region:IsIgnoringParentAlpha() then
+		-- every texture of the slot on its own as well: the slot frame (NormalTexture) of this client stays
+		-- visible when only the button is faded
+		local parts = { slot:GetRegions() }
+		for _, child in ipairs({ slot:GetChildren() }) do parts[#parts + 1] = child end
+		for _, region in ipairs(parts) do
+			if region:GetObjectType() ~= "FontString" and region:GetObjectType() ~= "MaskTexture" then
 				if collapsed then
 					region.sundryAlpha = region.sundryAlpha or region:GetAlpha()
 					region:SetAlpha(0)
@@ -572,6 +575,11 @@ function M:Init()
 	-- settings of this file that live on other pages
 	S:AlsoApply("bags", function() ApplyBags(); ApplyFade() end)
 	S:AlsoApply("tooltip", ApplyHitText)
+	-- Blizzard redraws the bag slots when bags change: fold them again
+	S:On("BAG_UPDATE_DELAYED", function() if S.char.bagsCollapsed then ApplyBagCollapse() end end)
+	if BagsBar and BagsBar.Layout then
+		hooksecurefunc(BagsBar, "Layout", function() if S.char.bagsCollapsed then ApplyBagCollapse() end end)
+	end
 	-- micro buttons and bag slots get their art back from Blizzard on some updates
 	S.Hook("UpdateMicroButtons", function() if S:IsEnabled("bars") then ApplyMicro() end end)
 	if MicroMenu and MicroMenu.Layout then
