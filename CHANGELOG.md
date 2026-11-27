@@ -2,7 +2,8 @@
 
 ## 1.2.0 - 2026-11-27
 
-- Flight times: routes you have not flown yet get an estimate from their length on the flight map and the flights you measured on the same map (shown with ~). Measured times are now also stored by route ID, so they work in every client language.
+- Flight time bar: counts down from the estimate already on the first flight of a route (the bar drains; past the estimate it shows +m:ss).
+- Flight times: routes you have not flown yet get an estimate from their length on the flight map and the flights you measured on the same map, or from the usual flight speed before your first flight there (shown with ~). Measured times are now also stored by route ID, so they work in every client language.
 - Sundry can ship flight times (FlightData.lua); your own measured times always win.
 - `/sundry flights` (and a button on the Actions page) lists your measured routes, ready to be copied.
 

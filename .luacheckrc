@@ -37,6 +37,7 @@ read_globals = {
 	"C_FriendList",
 	"C_GossipInfo",
 	"C_Item",
+	"C_Map",
 	"C_MerchantFrame",
 	"C_QuestLog",
 	"C_TaxiMap",

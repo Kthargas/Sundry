@@ -84,10 +84,22 @@ local function CurrentSlot()
 	end
 end
 
--- Length of all hops of the route to a slot, in map units (straight lines between the stops)
+-- Size of the flight map in yards (newer clients), to turn map lengths into yards
+local function MapYards()
+	local mapID = Call(GetTaxiMapID)
+	if not (mapID and C_Map and C_Map.GetMapWorldSize) then return nil end
+	local w, h = Call(C_Map.GetMapWorldSize, mapID)
+	if w and h and w > 0 and h > 0 then return w, h end
+end
+
+-- Length of all hops of the route to a slot (straight lines between the stops): in yards when the client
+-- knows the size of the map, otherwise in map units. Second return: true for yards.
 local function RouteLength(slot)
 	local hops = Call(GetNumRoutes, slot)
 	if not hops or hops < 1 then return nil end
+	local w, h = MapYards()
+	local yards = w ~= nil
+	w, h = w or 1, h or 1
 	local length = 0
 	for hop = 1, hops do
 		local sx, sy, dx, dy
@@ -99,9 +111,9 @@ local function RouteLength(slot)
 			dx, dy = NodePos(TaxiGetNodeSlot(slot, hop, false))
 		end
 		if not (sx and sy and dx and dy) then return nil end
-		length = length + math.sqrt((dx - sx) ^ 2 + (dy - sy) ^ 2)
+		length = length + math.sqrt(((dx - sx) * w) ^ 2 + ((dy - sy) * h) ^ 2)
 	end
-	return length
+	return length, yards
 end
 
 local function RouteFor(slot)
@@ -111,15 +123,17 @@ local function RouteFor(slot)
 	if S.IsSecret(fromName) or S.IsSecret(toName) then return nil end
 	if not nodes then ReadNodes() end
 	local a, b = NodeKey(from), NodeKey(slot)
-	local ok, length = pcall(RouteLength, slot)
+	local ok, length, yards = pcall(RouteLength, slot)
 	return {
 		from = fromName, to = toName, id = a and b and (a .. ">" .. b),
-		map = MapKey(), length = ok and length or nil,
+		map = MapKey(), length = ok and length or nil, yards = ok and yards or nil,
 	}
 end
 
 -- Duration of a route: measured by you, known (shipped with Sundry) or estimated from the map length and
 -- the flights measured on the same map. Second return: "measured", "known" or "estimate".
+local DEFAULT_SPEED = 28   -- yards per second along the straight line (taxis fly about 32 yd/s on curves)
+
 local function Duration(route)
 	if not route then return nil end
 	local t = route.id and Times()[route.id]
@@ -128,10 +142,13 @@ local function Duration(route)
 	if t then return t, "measured" end
 	t = route.id and S.FLIGHT_DATA and S.FLIGHT_DATA[route.id]
 	if t then return t, "known" end
-	local cal = route.length and route.length > 0 and Calibration()[route.map or "map"]
+	if not route.length or route.length <= 0 then return nil end
+	local cal = Calibration()[(route.map or "map") .. (route.yards and ":yd" or "")]
 	if cal and (cal.length or 0) > 0 and (cal.flights or 0) > 0 then
 		return route.length * cal.seconds / cal.length, "estimate"
 	end
+	-- nothing measured on this map yet: straight line at the usual flight speed (routes curve a little)
+	if route.yards then return route.length / DEFAULT_SPEED, "estimate" end
 end
 
 local function DurationText(seconds, kind)
@@ -269,8 +286,12 @@ local function OnUpdate(_, elapsed)
 	local spent = GetTime() - flight.startClock
 	local total = flight.total
 	if total and total > 0 then
-		bar.status:SetValue(math.min(spent / total, 1))
-		bar.time:SetText((flight.kind == "estimate" and "~" or "") .. Clock(total - spent))
+		bar.status:SetValue(math.max(1 - spent / total, 0))
+		if spent <= total then
+			bar.time:SetText((flight.kind == "estimate" and "~" or "") .. Clock(total - spent))
+		else
+			bar.time:SetText("+" .. Clock(spent - total))
+		end
 	else
 		bar.status:SetValue(1)
 		bar.time:SetText(Clock(spent))
@@ -303,7 +324,8 @@ local function StartFlight()
 	flight.start = now
 	flight.startClock = GetTime()
 	S.char.flight = {
-		from = flight.from, to = flight.to, id = flight.id, map = flight.map, length = flight.length, start = flight.start,
+		from = flight.from, to = flight.to, id = flight.id, map = flight.map, length = flight.length, yards = flight.yards,
+		start = flight.start,
 	}
 	ShowBar()
 end
@@ -320,9 +342,10 @@ local function EndFlight()
 		end
 		-- calibration of the estimate: seconds per map length on this flight map
 		if flight.length and flight.length > 0 then
-			local cal = Calibration()[flight.map or "map"] or { seconds = 0, length = 0, flights = 0 }
+			local calKey = (flight.map or "map") .. (flight.yards and ":yd" or "")
+			local cal = Calibration()[calKey] or { seconds = 0, length = 0, flights = 0 }
 			cal.seconds, cal.length, cal.flights = cal.seconds + spent, cal.length + flight.length, cal.flights + 1
-			Calibration()[flight.map or "map"] = cal
+			Calibration()[calKey] = cal
 		end
 	end
 	flight = nil
@@ -351,7 +374,8 @@ local function Resume(isLogin)
 		return
 	end
 	flight = {
-		from = saved.from, to = saved.to, id = saved.id, map = saved.map, length = saved.length, start = saved.start,
+		from = saved.from, to = saved.to, id = saved.id, map = saved.map, length = saved.length, yards = saved.yards,
+		start = saved.start,
 	}
 	flight.startClock = GetTime() - (time() - saved.start)
 	-- after a fresh login the time offline is in it: count down, but do not measure the route again
