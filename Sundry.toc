@@ -1,0 +1,25 @@
+## Interface: 16001
+## Title: Sundry |cff9d9d9d- All Sorts, but one Addon|r
+## Notes: Many small tweaks in one addon: fast loot, movable windows that remember their place, a tidier micro menu and bag bar, chat and tooltip helpers. Everything can be switched on and off.
+## Notes-deDE: Viele kleine Verbesserungen in einem Addon: Fast Loot, verschiebbare Fenster mit gemerkter Position, aufgeräumtes Mikromenü und Taschenleiste, Chat- und Tooltip-Helfer. Alles einzeln schaltbar.
+## Author: Kthargas
+## Version: 1.0.0
+## IconTexture: Interface\AddOns\Sundry\Textures\Icon
+## SavedVariables: SundryDB
+## AddonCompartmentFunc: Sundry_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: Sundry_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: Sundry_OnAddonCompartmentLeave
+## X-Website: https://github.com/Kthargas/Sundry
+## X-License: MIT
+
+Locales.lua
+Core.lua
+Loot.lua
+Windows.lua
+Bars.lua
+Tooltip.lua
+Chat.lua
+Auto.lua
+Misc.lua
+Minimap.lua
+Options.lua

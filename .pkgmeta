@@ -1,0 +1,9 @@
+package-as: Sundry
+
+ignore:
+  - docs
+  - CHANGELOG.md
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
