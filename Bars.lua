@@ -3,9 +3,10 @@ local L = S.L
 local M = {}
 S:RegisterModule("bars", M)
 
--- Bars and screen: micro menu and bag bar (frames, fading, hiding single buttons, collapsing the bag
--- bar), red error messages, key binding and macro texts, action bar art, out of range colour, class
--- colours in the unit frames and the combat text on the portraits.
+-- Bars and screen: micro menu and bag bar (outer frame, arrangement, fading, hiding single buttons,
+-- collapsing the bag bar), red error messages, key binding and macro texts, action bar art, out of range
+-- colour, class colours in the unit frames and the combat text on the portraits. The buttons themselves
+-- always keep Blizzard's look.
 --
 -- Blizzard's art is never hidden with Hide(): Blizzard shows it again on every state change. Sundry
 -- sets the alpha to 0 instead, which Blizzard leaves alone.
@@ -19,36 +20,9 @@ end
 
 local collapseButton   -- Sundry's arrow next to the backpack (created with the bag bar)
 
--- Thin line frame from plain colour, like Mundi's "line" style
-local function LineBorder(frame)
-	if frame.sundryLine then return frame.sundryLine end
-	local edges = {}
-	for i = 1, 4 do
-		local t = frame:CreateTexture(nil, "OVERLAY", nil, 7)
-		t:SetColorTexture(0, 0, 0, 0.9)
-		edges[i] = t
-	end
-	edges[1]:SetPoint("TOPLEFT", 1, -1); edges[1]:SetPoint("TOPRIGHT", -1, -1); edges[1]:SetHeight(1)
-	edges[2]:SetPoint("BOTTOMLEFT", 1, 1); edges[2]:SetPoint("BOTTOMRIGHT", -1, 1); edges[2]:SetHeight(1)
-	edges[3]:SetPoint("TOPLEFT", 1, -1); edges[3]:SetPoint("BOTTOMLEFT", 1, 1); edges[3]:SetWidth(1)
-	edges[4]:SetPoint("TOPRIGHT", -1, -1); edges[4]:SetPoint("BOTTOMRIGHT", -1, 1); edges[4]:SetWidth(1)
-	frame.sundryLine = edges
-	return edges
-end
-
-local function ShowLine(frame, shown)
-	local edges = shown and LineBorder(frame) or frame.sundryLine
-	if not edges then return end
-	for i = 1, 4 do edges[i]:SetShown(shown) end
-end
-
 ------------------------------------------------------------------------
 -- Micro menu
 ------------------------------------------------------------------------
--- The dark rounded background behind each micro button: textures named Background / PushedBackground
--- (Dragonflight style), found by key or by their atlas.
-local BG_KEYS = { "Background", "PushedBackground" }
-
 local function MicroButtons()
 	local list = {}
 	if MicroMenu and MicroMenu.GetLayoutChildren then
@@ -62,20 +36,6 @@ local function MicroButtons()
 	return list
 end
 M.MicroButtons = MicroButtons
-
-local function IsButtonBackground(region)
-	local atlas = region.GetAtlas and region:GetAtlas()
-	return type(atlas) == "string" and atlas:find("MicroMenu%-ButtonBG") ~= nil
-end
-
-local function StyleMicroButton(button, style)
-	local alpha = (style == "BLIZZARD") and 1 or 0
-	for _, key in ipairs(BG_KEYS) do SetAlphaOf(button[key], alpha) end
-	for _, region in ipairs({ button:GetRegions() }) do
-		if IsButtonBackground(region) then region:SetAlpha(alpha) end
-	end
-	ShowLine(button, style == "LINE")
-end
 
 local function MicroButtonName(button)
 	return button:GetName() or button:GetDebugName()
@@ -177,11 +137,9 @@ local function ApplyMicro(fromBlizzard)
 	laying = true
 	local db = S.db.bars
 	local on = S:IsEnabled("bars")
-	local style = on and db.microStyle or "BLIZZARD"
 	local buttons = MicroButtons()
 	local function Hidden(button) return on and db.microHide[MicroButtonName(button)] and true or false end
 	for _, button in ipairs(buttons) do
-		StyleMicroButton(button, style)
 		local hidden = Hidden(button)
 		button:SetAlpha(hidden and 0 or 1)
 		if not InCombatLockdown() then button:EnableMouse(not hidden) end
@@ -306,8 +264,9 @@ local function ApplyBagCollapse()
 	FadeSlotArt(slots, collapsed)
 	if collapseButton then
 		collapseButton:SetShown(on and true or false)
-		-- arrow points to where the bags will go
-		collapseButton.arrow:SetRotation(collapsed and math.pi or 0)
+		-- arrow points to where the bags will go (turned with the bag bar's direction)
+		local turn = ({ LEFT = math.pi, UP = -math.pi / 2, DOWN = math.pi / 2 })[S.db.bags.bagDirection] or 0
+		collapseButton.arrow:SetRotation((collapsed and math.pi or 0) + turn)
 	end
 	-- Blizzard's own toggle (newer clients) would fight with Sundry's: fade it out while Sundry's is on.
 	if BagBarExpandToggle then
@@ -342,19 +301,73 @@ local function CreateCollapseButton()
 	collapseButton = b
 end
 
+-- Direction of the bag bar: the bag slots lined up from the backpack to the right, left, up or down.
+-- "BLIZZARD" keeps Blizzard's layout. The collapse arrow sits on the other side of the backpack.
+local BAG_CHAIN = {
+	RIGHT = { "LEFT", "RIGHT", 1, 0 },
+	LEFT = { "RIGHT", "LEFT", -1, 0 },
+	UP = { "BOTTOM", "TOP", 0, 1 },
+	DOWN = { "TOP", "BOTTOM", 0, -1 },
+}
+local ARROW_SIDE = {   -- point of the arrow, point on the backpack, x, y, width, height
+	BLIZZARD = { "RIGHT", "LEFT", -2, 0, 12, 22 },
+	RIGHT = { "RIGHT", "LEFT", -2, 0, 12, 22 },
+	LEFT = { "LEFT", "RIGHT", 2, 0, 12, 22 },
+	UP = { "TOP", "BOTTOM", 0, -2, 22, 12 },
+	DOWN = { "BOTTOM", "TOP", 0, 2, 22, 12 },
+}
+local bagGap        -- Blizzard's own distance between two bag slots
+local bagsChained
+
+local function LayoutBags()
+	local pack = Backpack()
+	if not pack then return end
+	local dir = S:IsEnabled("bags") and S.db.bags.bagDirection or "BLIZZARD"
+	local chain = BAG_CHAIN[dir]
+	local slots = BagSlots()
+	if not bagsChained and slots[1] and slots[2] then
+		local ax, ay = slots[1]:GetCenter()
+		local bx, by = slots[2]:GetCenter()
+		if ax and bx then
+			local d = math.max(math.abs(bx - ax), math.abs(by - ay))
+			bagGap = math.floor(d - slots[1]:GetWidth() + 0.5)
+		end
+	end
+	if chain then
+		if InCombatLockdown() and pack:IsProtected() then
+			S.AfterCombat("bagLayout", LayoutBags)
+			return
+		end
+		local point, relPoint, dx, dy = chain[1], chain[2], chain[3], chain[4]
+		local gap = bagGap or 4
+		local prev = pack
+		for _, slot in ipairs(slots) do
+			slot:ClearAllPoints()
+			slot:SetPoint(point, prev, relPoint, dx * gap, dy * gap)
+			prev = slot
+		end
+		bagsChained = true
+	elseif bagsChained and BagsBar and BagsBar.Layout then
+		-- back to Blizzard's own layout
+		bagsChained = nil
+		pcall(BagsBar.Layout, BagsBar)
+	end
+	if collapseButton then
+		local side = ARROW_SIDE[dir] or ARROW_SIDE.BLIZZARD
+		collapseButton:ClearAllPoints()
+		collapseButton:SetPoint(side[1], pack, side[2], side[3], side[4])
+		collapseButton:SetSize(side[5], side[6])
+	end
+end
+M.LayoutBags = LayoutBags
+
 local function ApplyBags()
 	local db = S.db.bags
 	local on = S:IsEnabled("bags")
-	local style = on and db.bagStyle or "BLIZZARD"
 	local buttons = BagSlots()
 	if Backpack() then table.insert(buttons, Backpack()) end
-	for _, b in ipairs(buttons) do
-		-- the round slot art behind the bag icon (newer clients: SlotHighlightTexture / NormalTexture)
-		local normal = b.GetNormalTexture and b:GetNormalTexture()
-		SetAlphaOf(normal, style == "BLIZZARD" and 1 or 0)
-		ShowLine(b, style == "LINE")
-	end
 	CreateCollapseButton()
+	LayoutBags()
 	ApplyBagCollapse()
 	local hideFrame = on and db.bagFrame or false
 	StripFrame(BagsBar, buttons, hideFrame)
@@ -580,7 +593,10 @@ function M:Init()
 	-- Blizzard redraws the bag slots when bags change: fold them again
 	S:On("BAG_UPDATE_DELAYED", function() if S.char.bagsCollapsed then ApplyBagCollapse() end end)
 	if BagsBar and BagsBar.Layout then
-		hooksecurefunc(BagsBar, "Layout", function() if S.char.bagsCollapsed then ApplyBagCollapse() end end)
+		hooksecurefunc(BagsBar, "Layout", function()
+			if bagsChained then LayoutBags() end
+			if S.char.bagsCollapsed then ApplyBagCollapse() end
+		end)
 	end
 	-- micro buttons and bag slots get their art back from Blizzard on some updates
 	S.Hook("UpdateMicroButtons", function() if S:IsEnabled("bars") then ApplyMicro() end end)

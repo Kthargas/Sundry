@@ -29,10 +29,11 @@ local defaults = {
 	},
 	bags = {
 		fillTop = true, reagentDock = true,
-		bagFrame = true, bagStyle = "BLIZZARD", bagFade = false, bagAlpha = 0, bagCollapse = true,
+		bagFrame = true, bagFade = false, bagAlpha = 0, bagCollapse = true,
+		bagDirection = "BLIZZARD",
 	},
 	bars = {
-		microFrame = true, microStyle = "NONE", microOrder = "BLIZZARD", microSpacing = 0,
+		microFrame = true, microOrder = "BLIZZARD", microSpacing = 0,
 		microFade = false, microAlpha = 0, microHide = {},
 		hotkeys = true, macroNames = true,
 		barArt = true,
@@ -271,15 +272,15 @@ boot:SetScript("OnEvent", function(_, event, arg1)
 		local name = char.own and key or S.SHARED
 		if type(root.profiles[name]) ~= "table" then root.profiles[name] = CopyTable(shared) end
 		local db = root.profiles[name]
-		-- 1.0: one switch for accepting and turning in quests
+		-- one switch for accepting and turning in quests (test versions before the release)
 		if type(db.auto) == "table" and db.auto.quests ~= nil then
 			db.auto.questAccept = db.auto.quests or nil
 			db.auto.questTurnIn = db.auto.quests or nil
 			db.auto.quests = nil
 		end
-		-- 1.2: settings that moved to the page they belong to
+		-- settings that moved to the page they belong to (test versions before the release)
 		for _, move in ipairs({
-			{ "bars", "bags", { "bagFrame", "bagStyle", "bagFade", "bagAlpha", "bagCollapse" } },
+			{ "bars", "bags", { "bagFrame", "bagFade", "bagAlpha", "bagCollapse" } },
 			{ "bars", "chat", { "errors" } },
 			{ "bars", "tooltip", { "classColors", "hitText" } },
 		}) do
@@ -294,6 +295,8 @@ boot:SetScript("OnEvent", function(_, event, arg1)
 				end
 			end
 		end
+		if type(db.bars) == "table" then db.bars.microStyle = nil end
+		if type(db.bags) == "table" then db.bags.bagStyle = nil end
 		Merge(db, defaults)
 		S.root, S.char, S.db = root, char, db
 	elseif event == "PLAYER_LOGIN" then
